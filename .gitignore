@@ -30,9 +30,6 @@ dist
 # turbo
 .turbo
 
-# serverless framework
-.serverless
-
 # Titanium example apps
 apps/*/Resources
 apps/*/build

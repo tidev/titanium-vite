@@ -9,6 +9,7 @@ export function createTitaniumBuildEnvironment(
     options: {
       consumer: "client",
       build: {
+        outDir: "Resources",
         lib: {
           name: "app",
           entry: ["./src/app.js"],

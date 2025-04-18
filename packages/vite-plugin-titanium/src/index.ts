@@ -1,4 +1,5 @@
 import type { Plugin } from "vite";
+import { createTitaniumEnvironment } from "vite-titanium-environment";
 
 import type { Platform, ProjectType } from "./types.js";
 import { classicPlugin } from "./classic/index.js";
@@ -20,8 +21,23 @@ export function titanium(options: TitaniumOptions) {
     name: "titanium:base-config",
     config() {
       return {
+        appType: "custom",
         build: {
           outDir: "Resources",
+        },
+        builder: {
+          buildApp: async (builder) => {
+            // Vite comes with client and ssr environemnts by default which we don't need,
+            // so we only build the titanium environment
+            const environment = builder.environments.titanium;
+            if (!environment) {
+              throw new Error("Titanium environment not found");
+            }
+            await builder.build(environment);
+          },
+        },
+        environments: {
+          titanium: createTitaniumEnvironment({}),
         },
       };
     },
