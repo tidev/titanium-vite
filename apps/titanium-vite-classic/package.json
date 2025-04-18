@@ -1,0 +1,17 @@
+{
+  "name": "titanium-vite-classic",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "scripts": {
+    "build": "vite build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "vite": "catalog:",
+    "vite-plugin-titanium": "workspace:*",
+    "vite-titanium-environment": "workspace:*"
+  }
+}

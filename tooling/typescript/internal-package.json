@@ -1,0 +1,9 @@
+{
+  "extends": "./node.json",
+  "compilerOptions": {
+    /* Transpile using Bundler (not tsc) */
+    "module": "Preserve",
+    "moduleResolution": "Bundler",
+    "noEmit": true
+  }
+}

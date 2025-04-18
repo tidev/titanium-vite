@@ -1,0 +1,27 @@
+{
+  "name": "titanium-vite",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "turbo build",
+    "clean:workspaces": "turbo run clean",
+    "dev": "turbo watch dev",
+    "format": "turbo run format --continue -- --cache --cache-location .cache/.prettiercache",
+    "lint": "turbo lint --continue -- --cache --cache-location node_modules/.cache/.eslintcache",
+    "lint:fix": "turbo run lint --continue -- --fix --cache --cache-location .cache/.eslintcache",
+    "lint:ws": "pnpm dlx sherif@latest",
+    "postinstall": "pnpm lint:ws",
+    "test": "turbo run test",
+    "test:watch": "turbo run test:watch",
+    "typecheck": "turbo run typecheck"
+  },
+  "devDependencies": {
+    "@repo/prettier-config": "workspace:^0.1.0",
+    "@turbo/gen": "^2.3.1",
+    "prettier": "catalog:",
+    "turbo": "^2.3.1",
+    "typescript": "catalog:"
+  },
+  "packageManager": "pnpm@9.12.0",
+  "prettier": "@repo/prettier-config"
+}
