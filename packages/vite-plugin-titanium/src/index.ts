@@ -1,4 +1,6 @@
-import type { Plugin } from "vite";
+import type { IncomingMessage, NextFunction } from "connect";
+import type { ServerResponse } from "node:http";
+import type { HotPayload, Plugin } from "vite";
 import { createTitaniumEnvironment } from "vite-titanium-environment";
 
 import type { Platform, ProjectType } from "./types.js";
@@ -17,8 +19,8 @@ export function titanium(options: TitaniumOptions) {
   const platform = process.env.TITANIUM_BUILD_PLATFORM;
   validatePlatform(platform);
 
-  const titaniumConfigPlugin: Plugin = {
-    name: "titanium:base-config",
+  const titaniumCorePlugin: Plugin = {
+    name: "titanium:core",
     config() {
       return {
         appType: "custom",
@@ -40,6 +42,43 @@ export function titanium(options: TitaniumOptions) {
           titanium: createTitaniumEnvironment({}),
         },
       };
+    },
+    configureServer(server) {
+      async function titaniumInvokeMiddleware(
+        req: IncomingMessage,
+        res: ServerResponse,
+        next: NextFunction,
+      ) {
+        if (req.url !== "/invoke") {
+          next();
+        }
+
+        function getBody(request: IncomingMessage) {
+          return new Promise<string>((resolve) => {
+            const bodyParts: Buffer[] = [];
+            let body;
+            request
+              .on("data", (chunk: Buffer) => {
+                bodyParts.push(chunk);
+              })
+              .on("end", () => {
+                body = Buffer.concat(bodyParts).toString();
+                resolve(body);
+              });
+          });
+        }
+
+        const rawBody = await getBody(req);
+        const payload = JSON.parse(rawBody) as HotPayload;
+        const result =
+          await server.environments.titanium?.hot.handleInvoke(payload);
+
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(result));
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-misused-promises
+      server.middlewares.use(titaniumInvokeMiddleware);
     },
   };
 

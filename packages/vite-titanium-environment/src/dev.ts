@@ -15,20 +15,23 @@ export function createTitaniumDevEnvironment(
       console.log("transport.send", data);
     },
   };
+
   const transport: HotChannel = {
     on: (event, listener) => {
-      connection.on("message", listener);
+      console.log("transport.on", event);
     },
-    send: (data) => connection.send(data),
+    send: (data) => {
+      console.log("transport.send", data);
+    },
   };
   */
 
-  const workerdDevEnvironment = new DevEnvironment(name, config, {
+  const titaniumDevEnvironment = new DevEnvironment(name, config, {
+    ...context,
     options: {
       resolve: { conditions: ["custom"] },
       ...context.options,
     },
-    hot: false,
   });
-  return workerdDevEnvironment;
+  return titaniumDevEnvironment;
 }
