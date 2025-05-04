@@ -1,6 +1,8 @@
 import type { DevEnvironmentContext, ResolvedConfig } from "vite";
 import { DevEnvironment } from "vite";
 
+import { nodeCompatBuiltins } from "./constants.js";
+
 export function createTitaniumDevEnvironment(
   name: string,
   config: ResolvedConfig,
@@ -29,7 +31,7 @@ export function createTitaniumDevEnvironment(
   const titaniumDevEnvironment = new DevEnvironment(name, config, {
     ...context,
     options: {
-      resolve: { conditions: ["custom"] },
+      resolve: { builtins: [...nodeCompatBuiltins] },
       ...context.options,
     },
   });

@@ -35,10 +35,8 @@ export function nodeBuiltinsPlugin(): Plugin {
 
     resolveId(id) {
       if (isBuiltinModule(id)) {
-        return false;
+        return { id, external: true, moduleSideEffects: false };
       }
-
-      return null;
     },
   };
 }

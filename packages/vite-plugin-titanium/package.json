@@ -21,6 +21,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@titanium/polyfills": "workspace:*",
     "fast-xml-parser": "^5.0.8",
     "vite-plugin-static-copy": "^2.3.1",
     "vite-titanium-environment": "workspace:*"
@@ -35,7 +36,6 @@
     "dotenv-cli": "^7.4.2",
     "eslint": "catalog:",
     "prettier": "catalog:",
-    "tsc-watch": "^6.2.0",
     "typescript": "catalog:",
     "vite": "catalog:"
   },

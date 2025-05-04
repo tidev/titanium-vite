@@ -13,5 +13,7 @@ export const otherPlatform: Record<Platform, Platform> = {
 const queryRE = /\?.*$/;
 const hashRE = /#.*$/;
 
+export const bareImportRE = /^(?![a-zA-Z]:)[\w@](?!.*:\/\/)/
+
 export const cleanUrl = (url: string) =>
   url.replace(hashRE, "").replace(queryRE, "");

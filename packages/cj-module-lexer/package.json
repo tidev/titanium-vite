@@ -29,10 +29,8 @@
     "@types/debug": "^4.1.12",
     "@types/node": "catalog:",
     "dotenv-cli": "^7.4.2",
-    "es-module-lexer": "^1.6.0",
     "eslint": "catalog:",
     "prettier": "catalog:",
-    "tsc-watch": "^6.2.0",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:"

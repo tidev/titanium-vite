@@ -82,8 +82,30 @@ export function titanium(options: TitaniumOptions) {
     },
   };
 
+  const virtualEntries = ["virtual:titanium/app", "virtual:titanium/polyfills"];
+  const titaniumVirtualEntryPlugin: Plugin = {
+    name: "titanium:virtual-entries",
+
+    resolveId(source) {
+      return virtualEntries.includes(source) ? `\0${source}` : null;
+    },
+
+    load(id) {
+      if (id === `\0virtual:titanium/app`) {
+        return {
+          code: `import '/src/app.js';`,
+        };
+      } else if (id === `\0virtual:titanium/polyfills`) {
+        return {
+          code: `import '@titanium/polyfills';`,
+        };
+      }
+    },
+  };
+
   const sharedPlugins = [
-    titaniumConfigPlugin,
+    titaniumCorePlugin,
+    titaniumVirtualEntryPlugin,
     nodeBuiltinsPlugin(),
     resolvePlugin({ projectType, platform }),
   ];
