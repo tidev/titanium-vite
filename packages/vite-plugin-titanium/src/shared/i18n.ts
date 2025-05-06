@@ -3,9 +3,9 @@ import type { Plugin } from "vite";
 import { XMLParser } from "fast-xml-parser";
 import { normalizePath } from "vite";
 
-import type { ProjectType } from "./types.js";
+import type { ProjectType } from "../types.js";
 
-const I18N_PUBLIC_PATH = "/@liveview/i18n/";
+const I18N_PUBLIC_PATH = "/@titanium/i18n/";
 
 /**
  *
@@ -53,7 +53,7 @@ export function i18nPlugin(
             messages[key] = value;
           }
 
-          return `module.exports = ${JSON.stringify(messages)}`;
+          return `export default ${JSON.stringify(messages)}`;
         }
       }
     },

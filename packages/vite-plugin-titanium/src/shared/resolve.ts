@@ -2,8 +2,8 @@ import path from "path";
 import type { Plugin } from "vite";
 import { normalizePath } from "vite";
 
-import type { Platform, ProjectType } from "./types.js";
-import { bareImportRE, FS_PREFIX, otherPlatform } from "./utils.js";
+import type { Platform, ProjectType } from "../types.js";
+import { bareImportRE, FS_PREFIX, otherPlatform } from "../utils.js";
 
 export interface ResolvePluginOptions {
   projectType: ProjectType;
