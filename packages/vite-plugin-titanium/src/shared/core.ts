@@ -17,6 +17,7 @@ export function corePlugin(): Plugin {
       return {
         appType: "custom",
         build: {
+          target: "ios13",
           outDir: "Resources",
         },
         builder: {
@@ -33,6 +34,11 @@ export function corePlugin(): Plugin {
         environments: {
           titanium: createTitaniumEnvironment(),
         },
+        esbuild: {
+          supported: {
+            'top-level-await': true
+          }
+        },
         server: {
           watch: {
             ignored: ["build/**"],
@@ -47,7 +53,7 @@ export function corePlugin(): Plugin {
         next: NextFunction,
       ) {
         if (req.url !== "/invoke") {
-          next();
+          return next();
         }
 
         function getBody(request: IncomingMessage) {
@@ -67,6 +73,7 @@ export function corePlugin(): Plugin {
 
         const rawBody = await getBody(req);
         const payload = JSON.parse(rawBody) as HotPayload;
+        console.log('Titanium invoke middleware', payload);
         const result =
           await server.environments.titanium?.hot.handleInvoke(payload);
 

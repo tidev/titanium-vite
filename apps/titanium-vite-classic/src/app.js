@@ -1,6 +1,10 @@
-import { foo } from "./utils.js";
+import os from "os";
 
-console.log(foo);
+import isOdd from "is-odd";
+
+console.log(os.platform());
+
+console.log(isOdd(1));
 
 /**
  * Create a new tab group.

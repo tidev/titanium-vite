@@ -9,27 +9,32 @@ export function createTitaniumBuildEnvironment(
 ) {
   return new BuildEnvironment(name, config, {
     options: {
-      consumer: "client",
+      consumer: "server",
       build: {
-        target: "es2020",
+        target: "ios13",
         modulePreload: {
           polyfill: false,
         },
         outDir: "Resources",
+        copyPublicDir: false,
         rollupOptions: {
-          input: ["virtual:titanium/app", "virtual:titanium/polyfills"],
+          input: ["virtual:titanium/module-runner", "virtual:titanium/main"],
           output: {
             entryFileNames: (chunk) => {
+              if (chunk.name === "module-runner") {
+                return 'app.js'
+              }
               if (chunk.name === "polyfills") {
                 return "polyfills.bootstrap.js";
               }
               return `${chunk.name}.js`;
             },
-            format: "cjs",
           },
         },
       },
       resolve: {
+        // We want to bundle everything in the app so we prevent all dependencies from being externalized
+        noExternal: true,
         builtins: [...nodeCompatBuiltins],
         external: [...nodeCompatBuiltins],
       },

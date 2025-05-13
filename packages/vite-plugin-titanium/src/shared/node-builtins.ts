@@ -35,7 +35,7 @@ export function nodeBuiltinsPlugin(): Plugin {
 
     resolveId(id) {
       if (isBuiltinModule(id)) {
-        return { id, external: true, moduleSideEffects: false };
+        return { id: `/titanium:builtin:${id}`, external: true, moduleSideEffects: false };
       }
     },
   };

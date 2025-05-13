@@ -1,5 +1,6 @@
 import type { Platform } from "../types.js";
 import { assetsPlugin } from "./assets.js";
+import { virtualEntryPlugin } from "./entry.js";
 
 export interface ClassicPluginOptions {
   platform: Platform;
@@ -8,5 +9,5 @@ export interface ClassicPluginOptions {
 export function classicPlugin(options: ClassicPluginOptions) {
   const { platform } = options;
 
-  return [assetsPlugin({ platform })];
+  return [virtualEntryPlugin(), assetsPlugin({ platform })];
 }

@@ -10,9 +10,9 @@
     }
   },
   "scripts": {
-    "build": "tsc",
+    "build": "rollup -c",
     "clean": "rm -rf .turbo node_modules",
-    "dev": "tsc",
+    "dev": "rollup -c --watch",
     "lint": "eslint",
     "format": "prettier --check . --ignore-path ../../.gitignore",
     "typecheck": "tsc --noEmit"
@@ -28,10 +28,15 @@
     "@repo/eslint-config": "workspace:*",
     "@repo/prettier-config": "workspace:*",
     "@repo/tsconfig": "workspace:*",
+    "@rollup/plugin-commonjs": "^28.0.3",
+    "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-node-resolve": "^16.0.1",
+    "@rollup/plugin-typescript": "^12.1.2",
     "@types/whatwg-url": "^13.0.0",
     "dotenv-cli": "^7.4.2",
     "eslint": "catalog:",
     "prettier": "catalog:",
+    "rollup": "^4.40.2",
     "typescript": "catalog:",
     "vite": "catalog:"
   },

@@ -9,6 +9,9 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "dependencies": {
+    "is-odd": "^1.0.0"
+  },
   "devDependencies": {
     "vite": "catalog:",
     "vite-plugin-titanium": "workspace:*"
