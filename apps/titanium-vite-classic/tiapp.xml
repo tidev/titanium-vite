@@ -52,5 +52,5 @@
 		<target device="ipad">true</target>
 		<target device="iphone">true</target>
 	</deployment-targets>
-	<sdk-version>12.7.0</sdk-version>
+	<sdk-version>13.2.0</sdk-version>
 </ti:app>

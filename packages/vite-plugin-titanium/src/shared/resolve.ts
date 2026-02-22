@@ -1,9 +1,8 @@
 import path from "path";
+import type { Platform, ProjectType } from "@titanium/vite-utils";
 import type { Plugin } from "vite";
+import { bareImportRE, FS_PREFIX, otherPlatform } from "@titanium/vite-utils";
 import { normalizePath } from "vite";
-
-import type { Platform, ProjectType } from "../types.js";
-import { bareImportRE, FS_PREFIX, otherPlatform } from "../utils.js";
 
 export interface ResolvePluginOptions {
   projectType: ProjectType;
