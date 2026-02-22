@@ -1,6 +1,6 @@
 import { viteStaticCopy } from "vite-plugin-static-copy";
 
-import type { Platform } from "../types.js";
+import type { Platform } from "@titanium/vite-utils";
 
 export interface AssetsPluginOptions {
   platform: Platform;

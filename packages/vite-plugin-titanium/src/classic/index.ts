@@ -1,4 +1,4 @@
-import type { Platform } from "../types.js";
+import type { Platform } from "@titanium/vite-utils";
 import { assetsPlugin } from "./assets.js";
 import { virtualEntryPlugin } from "./entry.js";
 
