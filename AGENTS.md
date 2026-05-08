@@ -1,0 +1,83 @@
+# titanium-vite
+
+**Generated:** 2026-05-08 · **Commit:** 2d3f832 · **Branch:** main
+
+## OVERVIEW
+Vite-based dev environment + plugin set for the Titanium SDK. Experimental, active development. pnpm/Turbo monorepo, TypeScript, Vite 7. Bridges the Titanium CLI (`ti build`) and Vite via a typed, versioned context — see `docs/ti-bridge-plan.md`.
+
+## STRUCTURE
+```
+.
+├── apps/
+│   └── titanium-vite-classic/        # reference Titanium "classic" app for testing plugins
+├── packages/
+│   ├── vite-plugin-titanium/         # main plugin — composes shared + classic plugins
+│   ├── vite-plugin-titanium-alloy/   # Alloy MVC support (separate import path)
+│   ├── vite-titanium-environment/    # custom Vite environment (dev + build)
+│   ├── cj-module-lexer/              # CommonJS require() lexer (port of es-module-lexer)
+│   ├── polyfills/                    # @titanium/polyfills — TextEncoder/URL stubs for Ti runtime
+│   └── utils/                        # @titanium/vite-utils — TiBridgeApi, ProjectType, Platform
+├── tooling/
+│   ├── eslint/                       # @repo/eslint-config — flat config, type-checked rules
+│   ├── prettier/                     # @repo/prettier-config — @ianvs sort-imports
+│   └── typescript/                   # @repo/tsconfig — strict + noUncheckedIndexedAccess
+├── docs/ti-bridge-plan.md            # contract spec for Titanium ↔ Vite handoff
+├── pnpm-workspace.yaml               # workspaces + dependency catalog
+└── turbo.json
+```
+
+## WHERE TO LOOK
+| Task | Location |
+|------|----------|
+| Bridge contract / data flow | `docs/ti-bridge-plan.md`, `packages/utils/src/types.ts` |
+| Wire all plugins | `packages/vite-plugin-titanium/src/index.ts` (`titanium(opts)`) |
+| Classic project type | `packages/vite-plugin-titanium/src/classic/` |
+| Alloy project type | `packages/vite-plugin-titanium-alloy/src/` |
+| Vite env / dev / build runners | `packages/vite-titanium-environment/src/environment.ts` |
+| `Ti.*` / `Titanium.*` symbol collection | `packages/vite-plugin-titanium/src/shared/ti-symbols.ts` |
+| Platform-aware module resolution | `packages/vite-plugin-titanium/src/shared/resolve.ts` |
+| `/invoke` dev middleware (HMR bridge) | `packages/vite-plugin-titanium/src/shared/core.ts:50` |
+| Reference app | `apps/titanium-vite-classic/` (built via `ti build`) |
+
+## CONVENTIONS
+- **pnpm catalog** manages shared versions (`vite`, `vitest`, `typescript`, `eslint`, `prettier`, `zod`, `@types/node`). Reference as `"vite": "catalog:"` in package.json — never pin directly.
+- **TS**: `strict`, `noUncheckedIndexedAccess`, `noImplicitOverride`, `verbatimModuleSyntax`, `isolatedModules`, target `es2022`. tsbuildinfo cached at `.cache/tsbuildinfo.json`.
+- **ESLint** flat config (`@repo/eslint-config/base`) extends `recommendedTypeChecked` + `stylisticTypeChecked` — type-aware rules require `parserOptions.projectService: true`.
+- Every package exports types from `src/index.ts` and JS from `dist/index.js`:
+  ```json
+  "exports": { ".": { "import": "./dist/index.js", "types": "./src/index.ts" } }
+  ```
+  Consumers get pre-emit types — keep `src/index.ts` clean of build-only constructs.
+- `postinstall` runs `pnpm dlx sherif@latest` to detect cross-workspace dependency drift.
+- ESM-only. Every package has `"type": "module"`.
+
+## ANTI-PATTERNS (THIS PROJECT)
+- `@typescript-eslint/no-non-null-assertion: error` — no `x!`. Also matches the user's global rule.
+- `consistent-type-imports` enforces separate `import type` blocks (`fixStyle: "separate-type-imports"`).
+- `no-restricted-properties` blocks `process.env` direct access (rule available; intent is to use a validated env object).
+- Outstanding FIXMEs — do not duplicate without fixing the underlying issue:
+  - `packages/vite-plugin-titanium/src/shared/resolve.ts:69` — platform-specific override fallback unimplemented.
+  - `packages/vite-plugin-titanium-alloy/src/context.ts:86` — `webpack: false` hardcoded.
+  - `packages/vite-plugin-titanium-alloy/src/core.ts:140` — controller `.default` patching disabled pending per-project ESM-mode control.
+- Legacy bare-module → project-root resolution (`shared/resolve.ts:84`) exists for pre-Ti7 compat. Do not extend.
+- `eval` is tolerated only in `cj-module-lexer/src/index.ts` for dynamic-require evaluation. Don't introduce elsewhere.
+
+## COMMANDS
+```bash
+pnpm install            # also runs sherif workspace check
+pnpm dev                # turbo watch dev — persistent, no cache
+pnpm build              # turbo build (deps-first, tsc per package)
+pnpm test               # vitest (only cj-module-lexer has tests today)
+pnpm typecheck
+pnpm lint / lint:fix    # cached at .cache/.eslintcache
+pnpm format             # prettier --cache .cache/.prettiercache
+
+# Inside apps/titanium-vite-classic:
+ti build                # Titanium CLI; relies on built plugins
+```
+
+## NOTES
+- Bridge plan (`docs/ti-bridge-plan.md`) is **partially implemented**: `TiBridgeApi` types and `tiSymbolsPlugin`'s `reportTiApiUsage` callback live here; the Titanium-CLI side (`createTiViteBridge`, `buildId` validation, sidecar fallback) is in the Titanium SDK repo, not this one.
+- `tiSymbolsPlugin` is `apply: "build"` only — symbol data is not collected in dev.
+- No CI workflows in `.github/` yet.
+- Plugin packages have no tests; only `cj-module-lexer` runs Vitest.
