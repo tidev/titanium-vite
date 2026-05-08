@@ -3,6 +3,10 @@ packages:
   - packages/*
   - tooling/*
 
+allowBuilds:
+  core-js-pure: true
+  esbuild: true
+
 catalog:
   "@types/node": ^22.10.2
   eslint: ^9.12.0
