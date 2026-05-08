@@ -3,7 +3,7 @@
 **Generated:** 2026-05-08 · **Commit:** 2d3f832 · **Branch:** main
 
 ## OVERVIEW
-Vite-based dev environment + plugin set for the Titanium SDK. Experimental, active development. pnpm/Turbo monorepo, TypeScript, Vite 7. Bridges the Titanium CLI (`ti build`) and Vite via a typed, versioned context — see `docs/ti-bridge-plan.md`.
+Vite-based dev environment + plugin set for the Titanium SDK. Experimental, active development. pnpm/Turbo monorepo, TypeScript, Vite 8 (Rolldown 1.0.0-rc.18 / Oxc transformer). Bridges the Titanium CLI (`ti build`) and Vite via a typed, versioned context — see `docs/ti-bridge-plan.md`. Vite 7→8 migration notes: `docs/vite-8-migration-plan.md`.
 
 ## STRUCTURE
 ```
@@ -58,7 +58,7 @@ Vite-based dev environment + plugin set for the Titanium SDK. Experimental, acti
 - Outstanding FIXMEs — do not duplicate without fixing the underlying issue:
   - `packages/vite-plugin-titanium/src/shared/resolve.ts:69` — platform-specific override fallback unimplemented.
   - `packages/vite-plugin-titanium-alloy/src/context.ts:86` — `webpack: false` hardcoded.
-  - `packages/vite-plugin-titanium-alloy/src/core.ts:140` — controller `.default` patching disabled pending per-project ESM-mode control.
+  - `packages/vite-plugin-titanium-alloy/src/core.ts:148` — controller `.default` patching disabled pending per-project ESM-mode control.
 - Legacy bare-module → project-root resolution (`shared/resolve.ts:84`) exists for pre-Ti7 compat. Do not extend.
 - `eval` is tolerated only in `cj-module-lexer/src/index.ts` for dynamic-require evaluation. Don't introduce elsewhere.
 
