@@ -221,9 +221,6 @@ importers:
       '@types/debug':
         specifier: ^4.1.12
         version: 4.1.12
-      '@types/estree':
-        specifier: ^1.0.8
-        version: 1.0.8
       '@types/node':
         specifier: 'catalog:'
         version: 22.13.9
@@ -236,9 +233,6 @@ importers:
       prettier:
         specifier: 'catalog:'
         version: 3.5.3
-      rollup:
-        specifier: ^4.40.2
-        version: 4.40.2
       typescript:
         specifier: 'catalog:'
         version: 5.8.2
@@ -285,9 +279,6 @@ importers:
       prettier:
         specifier: 'catalog:'
         version: 3.5.3
-      rollup:
-        specifier: ^4.40.2
-        version: 4.40.2
       typescript:
         specifier: 'catalog:'
         version: 5.8.2

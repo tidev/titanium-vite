@@ -35,12 +35,10 @@
     "@repo/tsconfig": "workspace:*",
     "@types/connect": "^3.4.38",
     "@types/debug": "^4.1.12",
-    "@types/estree": "^1.0.8",
     "@types/node": "catalog:",
     "dotenv-cli": "^7.4.2",
     "eslint": "catalog:",
     "prettier": "catalog:",
-    "rollup": "^4.40.2",
     "typescript": "catalog:",
     "vite": "catalog:"
   },
