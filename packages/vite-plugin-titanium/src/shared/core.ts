@@ -34,11 +34,6 @@ export function corePlugin(): Plugin {
         environments: {
           titanium: createTitaniumEnvironment(),
         },
-        esbuild: {
-          supported: {
-            'top-level-await': true
-          }
-        },
         server: {
           watch: {
             ignored: ["build/**"],
