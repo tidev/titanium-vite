@@ -2,9 +2,9 @@ import { cleanUrl, stripBase } from '@titanium/vite-utils';
 import path from 'path';
 import qs from 'querystring';
 import fs from 'fs-extra';
-import { createFilter } from '@rollup/pluginutils';
-import type { ResolvedId } from 'rollup';
+import type { ResolvedId } from 'rolldown';
 import type { DevEnvironment, EnvironmentModuleNode, Plugin, ResolvedConfig } from 'vite';
+import { createFilter } from 'vite';
 
 import type { AlloyContext } from './context.js';
 

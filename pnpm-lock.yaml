@@ -251,9 +251,6 @@ importers:
       '@rollup/plugin-node-resolve':
         specifier: ^16.0.1
         version: 16.0.1(rollup@4.40.2)
-      '@rollup/pluginutils':
-        specifier: ^5.1.4
-        version: 5.1.4(rollup@4.40.2)
       '@titanium/vite-utils':
         specifier: workspace:*
         version: link:../utils

@@ -30,6 +30,9 @@ export function resolveAlloyPlugins(
      * import comes from `app/controllers`. Perform an additional Node style
      * resolve jailed to `app/lib` to handle those edge cases.
      */
+    // @ts-expect-error Rollup `Plugin<any>` is structurally narrower than
+    // Vite 8's; Vite's compat layer fills `cache`/`getWatchFiles`/`setAssetSource`
+    // at runtime. Tracked by §3.5/§7 followup (replace with custom resolver).
     nodeResolve({
       rootDir: path.join(context.appDir, "lib"),
       jail: path.join(context.appDir, "lib"),
