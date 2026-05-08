@@ -25,7 +25,8 @@
     "@rollup/pluginutils": "^5.1.4",
     "@titanium/vite-utils": "workspace:*",
     "alloy-compiler": "^0.2.7",
-    "fs-extra": "^11.3.0"
+    "fs-extra": "^11.3.0",
+    "rolldown": "^1.0.0-rc.18"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
