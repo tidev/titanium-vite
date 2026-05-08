@@ -17,7 +17,7 @@ export function createTitaniumBuildEnvironment(
         },
         outDir: "Resources",
         copyPublicDir: false,
-        rollupOptions: {
+        rolldownOptions: {
           input: ["virtual:titanium/module-runner", "virtual:titanium/main"],
           output: {
             entryFileNames: (chunk) => {
