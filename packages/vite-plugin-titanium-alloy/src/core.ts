@@ -1,7 +1,7 @@
 import path from "node:path";
 import type { Platform } from "@titanium/vite-utils";
 import type { Plugin } from "vite";
-import { cleanUrl, otherPlatform } from "@titanium/vite-utils";
+import { cleanUrl } from "@titanium/vite-utils";
 
 import type { AlloyContext } from "./context.js";
 
@@ -90,10 +90,18 @@ export function corePlugin(ctx: AlloyContext, platform: Platform): Plugin {
       if (!config.optimizeDeps) {
         config.optimizeDeps = {};
       }
+      // Vite 8 disabled extglobs in dev for consistency with Rolldown's
+      // glob enumeration, so the previous `!(android)` / `@(j|t)s` patterns
+      // no longer match. Enumerate the active platform's overrides plus the
+      // shared (non-platform) tree explicitly. Scanning the other platform's
+      // files would only add prebundle work, not correctness errors, but
+      // the explicit form documents intent.
       config.optimizeDeps.entries = [
         ...(config.optimizeDeps.entries ?? []),
-        `controllers/!(${otherPlatform[platform]})/**/*.@(j|t)s`,
-        `lib/!(${otherPlatform[platform]})/**/*.@(j|t)s`,
+        `controllers/*.{js,ts}`,
+        `controllers/${platform}/**/*.{js,ts}`,
+        `lib/*.{js,ts}`,
+        `lib/${platform}/**/*.{js,ts}`,
       ];
       config.optimizeDeps.exclude = [
         ...(config.optimizeDeps.exclude ?? []),
