@@ -1,6 +1,8 @@
 import path from "node:path";
 import type { Plugin } from "vite";
 
+const VIRTUAL_ENTRY_ID = "virtual:titanium/main";
+
 export function entryPlugin(appDir: string): Plugin {
   const ALLOY_ENTRY = path.resolve(appDir, "alloy.js");
 
@@ -11,6 +13,17 @@ export function entryPlugin(appDir: string): Plugin {
       if (id === "/app") {
         return ALLOY_ENTRY;
       }
+      if (id === VIRTUAL_ENTRY_ID) {
+        return `\0${VIRTUAL_ENTRY_ID}`;
+      }
+    },
+
+    load(id) {
+      if (id === `\0${VIRTUAL_ENTRY_ID}`) {
+        return {
+          code: `import '/app';`,
+        };
+      }
     },
 
     transform(code, id) {
@@ -19,7 +32,7 @@ export function entryPlugin(appDir: string): Plugin {
 
 // Always define globals to make sure they are the correct ones loaded via LiveView
 global.Alloy = Alloy;
-global._ = _;
+global._ = Alloy._;
 global.Backbone = Alloy.Backbone;
 
 ${code}

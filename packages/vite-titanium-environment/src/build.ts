@@ -25,7 +25,14 @@ export function createTitaniumBuildEnvironment(
           // Titanium is a custom JS runtime — neither node nor browser. "neutral" stops
           // Rolldown from auto-externalizing `node:*` and other host-specific specifiers.
           platform: "neutral",
-          input: ["virtual:titanium/module-runner", "virtual:titanium/main"],
+          // Use the object form so chunk names are explicit and stable for
+          // `entryFileNames` to dispatch on. Object form also lets plugins
+          // (e.g. alloy controller/widget/model entries) merge inputs without
+          // colliding with Vite's array-concatenation merge semantics.
+          input: {
+            "module-runner": "virtual:titanium/module-runner",
+            main: "virtual:titanium/main",
+          },
           output: {
             // Titanium's runtime evaluates files via JavaScriptCore in script context
             // (`JSEvaluateScript`) and provides a CommonJS-style `require` global.

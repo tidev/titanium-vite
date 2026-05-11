@@ -1,9 +1,12 @@
+import { createRequire } from "node:module";
 import path from "node:path";
 import type { Platform } from "@titanium/vite-utils";
 import type { AlloyCompiler, AlloyConfig } from "alloy-compiler";
 import type { Plugin, ViteDevServer } from "vite";
 import { createCompiler } from "alloy-compiler";
 import { normalizePath } from "vite";
+
+const require = createRequire(import.meta.url);
 
 // A mapping of files in an Alloy project that require us to recreate the
 // Alloy compiler to properly update all internals

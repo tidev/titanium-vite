@@ -1,9 +1,12 @@
+import { createRequire } from "node:module";
 import path from "node:path";
 import type { Platform } from "@titanium/vite-utils";
 import type { Plugin } from "vite";
 import { cleanUrl } from "@titanium/vite-utils";
 
 import type { AlloyContext } from "./context.js";
+
+const require = createRequire(import.meta.url);
 
 const DEFAULT_BACKBONE_VERSION = "0.9.2";
 

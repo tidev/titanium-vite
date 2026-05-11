@@ -21,9 +21,9 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@rollup/plugin-node-resolve": "^16.0.1",
     "@titanium/vite-utils": "workspace:*",
     "alloy-compiler": "^0.2.7",
+    "alloy-utils": "^0.2.7",
     "fs-extra": "^11.3.0",
     "rolldown": "^1.0.0-rc.18"
   },

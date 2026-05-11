@@ -6,7 +6,7 @@ Vite integration for Alloy — Titanium's MVC framework. Wraps `alloy-compiler` 
 ## STRUCTURE
 ```
 src/
-├── index.ts             # resolveAlloyPlugins() — composes the plugin chain (incl. nodeResolve jailed to app/lib)
+├── index.ts             # resolveAlloyPlugins() — composes the plugin chain
 ├── context.ts           # AlloyContext — owns AlloyCompiler + dev-server hooks; full-recompile triggers
 ├── core.ts              # alloy/* aliases, define globals (ENV_DEV, OS_MOBILEWEB, etc.), controller patching
 ├── config.ts            # app/config.json handling
@@ -26,13 +26,12 @@ src/
 | Compiler instantiation | `context.ts:79` `createCompiler` |
 | Controller `require()` patching for Vite | `core.ts:138` `patchForViteCompatibility` |
 | jQuery externalization (Backbone unused-import leak) | `core.ts:116` `resolveId` |
-| `app/lib` resolve jail | `index.ts:33` (extra `@rollup/plugin-node-resolve`) |
 
 ## CONVENTIONS
 - All plugins receive the same `AlloyContext` instance; never instantiate `AlloyCompiler` outside it.
 - Editing files in `fullRecompileFiles` rebuilds the compiler **and** invalidates Vite's module graph (`context.ts:65`); other edits use HMR.
-- Bare-import dedupe is forced through the extra `nodeResolve` jail because Alloy's `app/lib` lookup differs from Vite's default resolution.
 - `alloy` package is resolved via `require.resolve` against `projectDir` (`context.ts:35`) — Alloy must be installed in the **consuming** project, not this package.
+- `app/lib` does **not** support nested `node_modules`. Bare imports inside `app/lib` resolve via Vite's normal resolution (project-root `node_modules`); install dependencies at the project root.
 
 ## ANTI-PATTERNS
 - `core.ts:140`: controller `.default` patching is intentionally **disabled**. Don't re-enable until per-project ESM-mode control exists (the helper `requireDefaultExport` at `:159` is the dead code path).

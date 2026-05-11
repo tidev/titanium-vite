@@ -51,40 +51,40 @@ export function componentPlugin(ctx: AlloyContext): Plugin {
 
 			const componentMatch = controllerRE.exec(id);
 			const [, widgetId, componentId] = componentMatch ?? [];
-			if (widgetId && componentId) {
-				let result: ResolvedId | null;
-				if (widgetId) {
-					result = await this.resolve(
-						path.join(appDir, 'widgets', widgetId, 'controllers', componentId),
+			if (!componentId) return;
+
+			let result: ResolvedId | null;
+			if (widgetId) {
+				result = await this.resolve(
+					path.join(appDir, 'widgets', widgetId, 'controllers', componentId),
+					importer,
+					{ skipSelf: true }
+				);
+			} else {
+				result = await this.resolve(
+					path.join(appDir, 'controllers', componentId),
+					importer,
+					{ skipSelf: true }
+				);
+				if (!result) {
+					// No controller found, but maybe there is a view only
+					const view = await this.resolve(
+						path.join(appDir, 'views', `${componentId}.xml`),
 						importer,
 						{ skipSelf: true }
 					);
-				} else {
-					result = await this.resolve(
-						path.join(appDir, 'controllers', componentId),
-						importer,
-						{ skipSelf: true }
-					);
-					if (!result) {
-						// No controller found, but maybe there is a view only
-						const view = await this.resolve(
-							path.join(appDir, 'views', `${componentId}.xml`),
-							importer,
-							{ skipSelf: true }
+					if (view) {
+						return (
+							VIEW_ONLY_PREFIX +
+							view.id
+								.replace('/app/views/', '/app/controllers/')
+								.replace(/\.xml$/, '.js')
 						);
-						if (view) {
-							return (
-								VIEW_ONLY_PREFIX +
-								view.id
-									.replace('/app/views/', '/app/controllers/')
-									.replace(/\.xml$/, '.js')
-							);
-						}
 					}
 				}
-				if (result) {
-					return result.id;
-				}
+			}
+			if (result) {
+				return result.id;
 			}
 		},
 
@@ -147,9 +147,10 @@ export function componentPlugin(ctx: AlloyContext): Plugin {
 						}
 					});
 
-				// server only handling for view and style dependency hmr
-				const { moduleGraph } = this.environment as DevEnvironment
-				const thisModule = moduleGraph.getModuleById(id);
+				// server only handling for view and style dependency hmr; in
+				// production builds `this.environment` has no moduleGraph.
+				const moduleGraph = (this.environment as DevEnvironment).moduleGraph;
+				const thisModule = moduleGraph?.getModuleById(id);
 				if (thisModule) {
 					// record deps in the module graph so edits to view and style can trigger
 					// controller import to hot update

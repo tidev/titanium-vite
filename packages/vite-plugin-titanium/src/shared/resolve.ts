@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "path";
 import type { Platform, ProjectType } from "@titanium/vite-utils";
 import type { Plugin } from "vite";
@@ -20,12 +21,14 @@ export function resolvePlugin({
   platform,
 }: ResolvePluginOptions): Plugin {
   let root: string;
+  let projectRoot: string;
 
   return {
     name: "titanium:resolve",
     // Enforce as pre plugin so it comes before vite's default resolve plugin
     enforce: "pre",
     configResolved(config) {
+      projectRoot = config.root;
       root =
         projectType === "alloy"
           ? path.join(config.root, "app")
@@ -89,6 +92,22 @@ export function resolvePlugin({
       };
 
       if (bareImportRE.test(id) || id.startsWith("/")) {
+        // If the id is already an OS absolute path (under the project root or
+        // pointing into node_modules / SDK paths), leave it for the default
+        // resolver. `path.join('/app/lib', '/Users/.../foo')` concatenates and
+        // produces `<root>/app/lib/Users/.../foo` — every re-entry mangles
+        // further, looping forever. Treat the path as "real" if either the
+        // file exists OR it's under the project root (covers extensionless
+        // requires that the default resolver will resolve next).
+        if (
+          id.startsWith("/") &&
+          path.isAbsolute(id) &&
+          (id.startsWith(projectRoot + path.sep) ||
+            id.includes(`${path.sep}node_modules${path.sep}`) ||
+            fs.existsSync(id))
+        ) {
+          return;
+        }
         const dirs = [];
         if (projectType === "alloy") {
           dirs.push(path.join(root, "lib"), path.join(root, "assets"));

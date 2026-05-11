@@ -43,7 +43,7 @@ declare module "alloy-compiler" {
   export function createCompiler(config: AlloyCompilerOptions): AlloyCompiler;
 }
 
-declare module "alloy-compiler/lib/compilerUtils" {
+declare module "alloy-compiler/lib/compilerUtils.js" {
   export function parseConfig(
     configFile: string,
     alloyConfig: Record<string, any>,
@@ -51,6 +51,6 @@ declare module "alloy-compiler/lib/compilerUtils" {
   ): void;
 }
 
-declare module "alloy-compiler/lib/compilerUtils" {
+declare module "alloy-compiler/lib/compilerUtils.js" {
   export const compilerUtils: any;
 }

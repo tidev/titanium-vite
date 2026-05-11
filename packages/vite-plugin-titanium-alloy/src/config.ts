@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import type { Plugin } from "vite";
-import { parseConfig } from "alloy-compiler/lib/compilerUtils";
+import { parseConfig } from "alloy-compiler/lib/compilerUtils.js";
 
 import type { AlloyContext } from "./context.js";
 
