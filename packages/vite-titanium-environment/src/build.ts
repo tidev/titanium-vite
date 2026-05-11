@@ -9,7 +9,11 @@ export function createTitaniumBuildEnvironment(
 ) {
   return new BuildEnvironment(name, config, {
     options: {
-      consumer: "server",
+      // Use the client consumer so Vite's native resolver bundles npm dependencies
+      // by default (browser-style). With "server" + platform="neutral" the native
+      // vite-resolve plugin still externalizes anything resolved from node_modules,
+      // even when `resolve.noExternal: true` is set.
+      consumer: "client",
       build: {
         target: "ios13",
         modulePreload: {
@@ -18,8 +22,17 @@ export function createTitaniumBuildEnvironment(
         outDir: "Resources",
         copyPublicDir: false,
         rolldownOptions: {
+          // Titanium is a custom JS runtime — neither node nor browser. "neutral" stops
+          // Rolldown from auto-externalizing `node:*` and other host-specific specifiers.
+          platform: "neutral",
           input: ["virtual:titanium/module-runner", "virtual:titanium/main"],
           output: {
+            // Titanium's runtime evaluates files via JavaScriptCore in script context
+            // (`JSEvaluateScript`) and provides a CommonJS-style `require` global.
+            // Static `import` statements are a SyntaxError; `module.exports`/`require()`
+            // are the supported module format. Emit CJS so app.js and shared chunks
+            // wire up through `require()` instead of ESM `import`.
+            format: "cjs",
             entryFileNames: (chunk) => {
               if (chunk.name === "module-runner") {
                 return 'app.js'
@@ -33,8 +46,11 @@ export function createTitaniumBuildEnvironment(
         },
       },
       resolve: {
-        // We want to bundle everything in the app so we prevent all dependencies from being externalized
-        noExternal: true,
+        // Titanium has no module loader at runtime — every npm dep must be bundled.
+        // Rolldown's native `vite-resolve` plugin honors `noExternal` only when it's
+        // a regex/array (not `true`), so use a catch-all regex to force bundling of
+        // every bare specifier that gets resolved to node_modules.
+        noExternal: [/.*/],
         builtins: [...nodeCompatBuiltins],
         external: [...nodeCompatBuiltins],
       },

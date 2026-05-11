@@ -2,8 +2,11 @@ import type { Platform, ProjectType } from "@titanium/vite-utils";
 import type { Plugin } from "vite";
 import { moduleRunnerTransform } from "vite";
 
+import { resolveAlloyPlugins } from "vite-plugin-titanium-alloy";
+
 import { classicPlugin } from "./classic/index.js";
 import { corePlugin } from "./shared/core.js";
+import { forceBundlePlugin } from "./shared/force-bundle.js";
 import { moduleRunnerPlugin } from "./shared/module-runner.js";
 import { nodeBuiltinsPlugin } from "./shared/node-builtins.js";
 import { polyfillsPlugin } from "./shared/polyfills.js";
@@ -26,18 +29,28 @@ export function titanium(options: TitaniumOptions) {
     moduleRunnerPlugin(),
     polyfillsPlugin(),
     nodeBuiltinsPlugin(),
+    forceBundlePlugin(),
     resolvePlugin({ projectType, platform }),
     tiSymbolsPlugin(),
   ];
 
   const projectPlugins =
-    projectType === "classic" ? classicPlugin({ platform }) : [];
+    projectType === "classic"
+      ? classicPlugin({ platform })
+      : resolveAlloyPlugins(process.cwd(), platform);
 
+  // moduleRunnerTransform rewrites ESM imports into `__vite_ssr_import__` calls so
+  // Vite's ModuleRunner can fetch modules at runtime. This is a dev-mode concern;
+  // production builds emit CJS bundles that Titanium's native loader handles directly.
+  let isProduction = false;
   const moduleRunnerTransformPlugin: Plugin = {
     name: "titanium:module-runner-transform",
     enforce: "post",
+    configResolved(config) {
+      isProduction = config.isProduction;
+    },
     async renderChunk(code, chunk) {
-      if (chunk.fileName === "app.js") {
+      if (isProduction || chunk.fileName === "app.js") {
         return null;
       }
 

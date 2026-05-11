@@ -2,9 +2,10 @@ import os from "os";
 
 import isOdd from "is-odd";
 
-console.log(os.platform());
-
-console.log(isOdd(1));
+console.log("[ti-debug] main.js entered");
+console.log("[ti-debug] os.platform() =", os.platform());
+console.log("[ti-debug] isOdd(1) =", isOdd(1));
+console.log("[ti-debug] isOdd(2) =", isOdd(2));
 
 /**
  * Create a new tab group.

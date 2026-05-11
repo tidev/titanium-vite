@@ -27,6 +27,7 @@
     "rolldown": "^1.0.0-rc.18",
     "tinyglobby": "^0.2.13",
     "vite-plugin-static-copy": "^3.3.0",
+    "vite-plugin-titanium-alloy": "workspace:*",
     "vite-titanium-environment": "workspace:*"
   },
   "devDependencies": {
