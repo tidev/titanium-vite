@@ -8,6 +8,7 @@ import { classicPlugin } from "./classic/index.js";
 import { corePlugin } from "./shared/core.js";
 import { forceBundlePlugin } from "./shared/force-bundle.js";
 import { moduleRunnerPlugin } from "./shared/module-runner.js";
+import { nativeModulesPlugin } from "./shared/native-modules.js";
 import { nodeBuiltinsPlugin } from "./shared/node-builtins.js";
 import { polyfillsPlugin } from "./shared/polyfills.js";
 import { resolvePlugin } from "./shared/resolve.js";
@@ -29,6 +30,7 @@ export function titanium(options: TitaniumOptions) {
     moduleRunnerPlugin(),
     polyfillsPlugin(),
     nodeBuiltinsPlugin(),
+    nativeModulesPlugin(),
     forceBundlePlugin(),
     resolvePlugin({ projectType, platform }),
     tiSymbolsPlugin(),

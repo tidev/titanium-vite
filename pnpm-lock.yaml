@@ -206,6 +206,9 @@ importers:
       '@titanium/vite-utils':
         specifier: workspace:*
         version: link:../utils
+      debug:
+        specifier: ^4.4.0
+        version: 4.4.0
       fast-xml-parser:
         specifier: ^5.0.8
         version: 5.0.8

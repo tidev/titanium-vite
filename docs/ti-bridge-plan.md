@@ -29,6 +29,9 @@ type TiViteContextV1 = {
   platform: string;
   deployType: string;
   target?: string;
+  // IDs of native/CommonJS modules from tiapp.xml, filtered to the active
+  // build platform. Vite externalizes these so Titanium's runtime resolves them.
+  nativeModules: string[];
 };
 
 type TiViteResultV1 = {
