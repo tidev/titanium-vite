@@ -1,0 +1,20 @@
+{
+  "name": "titanium-vite-alloy",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "scripts": {
+    "build": "ti build"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "is-odd": "^1.0.0"
+  },
+  "devDependencies": {
+    "alloy": "^1.16.0",
+    "vite": "catalog:",
+    "vite-plugin-titanium": "workspace:*"
+  }
+}
