@@ -34,7 +34,7 @@ declare module "alloy-compiler" {
   }
 
   export interface CreateCompilerOptions {
-    webpack: boolean;
+    moduleFormat?: "cjs" | "esm";
     compileConfig: {
       projectDir: string;
       alloyConfig: AlloyConfig;

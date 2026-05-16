@@ -86,8 +86,7 @@ export class AlloyContext {
     };
 
     return createCompiler({
-      // FIXME: Make this configurable per project
-      webpack: false,
+      moduleFormat: "esm",
       compileConfig: {
         projectDir: this.projectDir,
         alloyConfig,

@@ -148,11 +148,15 @@ export function corePlugin(ctx: AlloyContext, platform: Platform): Plugin {
  */
 function patchForViteCompatibility(content: string) {
   // requires for controllers need to use `.default`
-  // FIXME: Re-enable once we can control ESM mode per project
-  // content = requireDefaultExport(content, appControllerRequestPattern);
-  // content = requireDefaultExport(content, widgetControllerRequestPattern);
+  content = requireDefaultExport(content, appControllerRequestPattern);
+  content = requireDefaultExport(content, widgetControllerRequestPattern);
 
   content = content
+    // /alloy/CFG is an ESM virtual module in Vite.
+    .replace(
+      "exports.CFG = require('/alloy/CFG');",
+      "exports.CFG = require('/alloy/CFG').default;",
+    )
     // remove ucfirst in model/collection requires
     .replace(/models\/'\s\+\sucfirst\(name\)/g, "models/' + name")
     // remove double slash in controller requires

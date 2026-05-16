@@ -38,7 +38,7 @@ export function configPlugin(ctx: AlloyContext): Plugin {
             }
           }
         }
-        return `module.exports = ${JSON.stringify(config)}`;
+        return `export default ${JSON.stringify(config)}`;
       }
     },
   };
