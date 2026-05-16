@@ -39,6 +39,14 @@ Vite-based dev environment + plugin set for the Titanium SDK. Experimental, acti
 | `/invoke` dev middleware (HMR bridge) | `packages/vite-plugin-titanium/src/shared/core.ts:50` |
 | Reference app | `apps/titanium-vite-classic/` (built via `ti build`) |
 
+## RELATED LOCAL REPOS
+| Repo | Location |
+|------|----------|
+| Alloy | `../alloy` |
+| Alloy DevKit | `../alloy-devkit` |
+| Titanium SDK | `../titanium_mobile` |
+| Lambus Titanium App | `../lambus-titanium` |
+
 ## CONVENTIONS
 - **pnpm catalog** manages shared versions (`vite`, `vitest`, `typescript`, `eslint`, `prettier`, `zod`, `@types/node`). Reference as `"vite": "catalog:"` in package.json — never pin directly.
 - **TS**: `strict`, `noUncheckedIndexedAccess`, `noImplicitOverride`, `verbatimModuleSyntax`, `isolatedModules`, target `es2022`. tsbuildinfo cached at `.cache/tsbuildinfo.json`.
