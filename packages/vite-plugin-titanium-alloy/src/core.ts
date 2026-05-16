@@ -147,9 +147,10 @@ export function corePlugin(ctx: AlloyContext, platform: Platform): Plugin {
  * @param content File content to modify
  */
 function patchForViteCompatibility(content: string) {
-  // requires for controllers need to use `.default`
-  content = requireDefaultExport(content, appControllerRequestPattern);
-  content = requireDefaultExport(content, widgetControllerRequestPattern);
+  // Controller modules are ESM-shaped in dev, but production CJS chunks expose
+  // the constructor directly once entry exports are preserved.
+  content = requireControllerExport(content, appControllerRequestPattern);
+  content = requireControllerExport(content, widgetControllerRequestPattern);
 
   content = content
     // /alloy/CFG is an ESM virtual module in Vite.
@@ -166,18 +167,18 @@ function patchForViteCompatibility(content: string) {
 }
 
 /**
- * Modifies require statements to use `.default`.
+ * Modifies controller require statements to use ESM default exports when present.
  *
  * @param content Content string to search in.
  * @param requestFilter RegExp to filter for specific requires.
  */
-function requireDefaultExport(content: string, requestFilter: string) {
+function requireControllerExport(content: string, requestFilter: string) {
   const searchPattern = new RegExp(
     `(require\\(${requestFilter})(\\(?name(?: \\|\\| DEFAULT_WIDGET\\))?)(\\))`,
     "g",
   );
   return content.replace(
     searchPattern,
-    "$1$2.replace(/^\\.?\\//, '')$3.default",
+    "(function (__alloyViteController) { return __alloyViteController && __alloyViteController.__esModule && __alloyViteController.default ? __alloyViteController.default : __alloyViteController; })($1$2.replace(/^\\.?\\//, '')$3)",
   );
 }

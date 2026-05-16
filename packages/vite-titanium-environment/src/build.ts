@@ -33,6 +33,7 @@ export function createTitaniumBuildEnvironment(
             "module-runner": "virtual:titanium/module-runner",
             main: "virtual:titanium/main",
           },
+          preserveEntrySignatures: "exports-only",
           output: {
             // Titanium's runtime evaluates files via JavaScriptCore in script context
             // (`JSEvaluateScript`) and provides a CommonJS-style `require` global.
