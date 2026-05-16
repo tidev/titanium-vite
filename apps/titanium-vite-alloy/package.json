@@ -13,7 +13,7 @@
     "is-odd": "^1.0.0"
   },
   "devDependencies": {
-    "alloy": "^1.16.0",
+    "alloy": "^3.0.0",
     "vite": "catalog:",
     "vite-plugin-titanium": "workspace:*"
   }

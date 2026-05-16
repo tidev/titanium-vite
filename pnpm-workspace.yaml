@@ -16,5 +16,9 @@ catalog:
   vitest: ^3.0.9
   zod: ^3.23.8
 
+overrides:
+  alloy-compiler: link:../alloy-devkit/packages/alloy-compiler
+  alloy-utils: link:../alloy-devkit/packages/alloy-utils
+
 publicHoistPattern:
   - "@ianvs/prettier-plugin-sort-imports"
