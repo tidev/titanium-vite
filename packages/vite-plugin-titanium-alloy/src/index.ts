@@ -3,6 +3,7 @@ import path from "node:path";
 import type { Platform } from "@titanium/vite-utils";
 import type { Plugin } from "vite";
 
+import { assetsPlugin } from "./assets.js";
 import { componentPlugin } from "./component.js";
 import { configPlugin } from "./config.js";
 import { AlloyContext, initContextPlugin } from "./context.js";
@@ -28,6 +29,7 @@ export function resolveAlloyPlugins(
     componentPlugin(context),
     modelPlugin(context),
     widgetPlugin(appDir),
+    assetsPlugin(context, platform),
     runtimeEntriesPlugin(context, platform),
   ];
 }
@@ -159,7 +161,71 @@ function collectRuntimeEntries(
     );
   }
 
+  collectBootstrapEntries(appDir, platform, byChunk, byVirtualId);
+
   return { byChunk, byVirtualId };
+}
+
+function collectBootstrapEntries(
+  appDir: string,
+  platform: Platform,
+  byChunk: Record<string, string>,
+  byVirtualId: Record<string, string>,
+) {
+  const platformFolder = platform === "ios" ? "iphone" : "android";
+  const roots = ["lib", "vendor"];
+  const files = new Map<string, string>();
+
+  const collectDir = (dir: string, relBase = "") => {
+    if (!fs.existsSync(dir)) return;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        if (entry.name === "ios") continue;
+        if (entry.name === "iphone") continue;
+        if (entry.name === "android") continue;
+        collectDir(path.join(dir, entry.name), path.join(relBase, entry.name));
+        continue;
+      }
+      if (!entry.name.endsWith(".bootstrap.js")) continue;
+      const name = path
+        .join(relBase, entry.name.replace(/\.js$/, ""))
+        .replace(/\\/g, "/");
+      files.set(name, path.join(dir, entry.name));
+    }
+  };
+
+  const collectPlatformDir = (dir: string, relBase = "") => {
+    if (!fs.existsSync(dir)) return;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isDirectory()) {
+        collectPlatformDir(
+          path.join(dir, entry.name),
+          path.join(relBase, entry.name),
+        );
+        continue;
+      }
+      if (!entry.name.endsWith(".bootstrap.js")) continue;
+      const name = path
+        .join(relBase, entry.name.replace(/\.js$/, ""))
+        .replace(/\\/g, "/");
+      files.set(name, path.join(dir, entry.name));
+    }
+  };
+
+  for (const root of roots) {
+    const rootDir = path.join(appDir, root);
+    collectDir(rootDir);
+    collectPlatformDir(path.join(rootDir, platformFolder));
+    if (platform === "ios") {
+      collectPlatformDir(path.join(rootDir, "ios"));
+    }
+  }
+
+  for (const [name, filePath] of files) {
+    const virtualId = `${VIRTUAL_PREFIX}${name}`;
+    byChunk[name] = virtualId;
+    byVirtualId[virtualId] = filePath;
+  }
 }
 
 function collectWidgetModels(
