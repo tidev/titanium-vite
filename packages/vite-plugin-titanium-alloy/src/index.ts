@@ -11,6 +11,8 @@ import { entryPlugin } from "./entry.js";
 import { modelPlugin } from "./model.js";
 import { widgetPlugin } from "./widget.js";
 
+const DEFAULT_SYNC_ADAPTERS = ["localStorage", "properties", "sql"];
+
 export function resolveAlloyPlugins(
   projectDir: string,
   platform: Platform,
@@ -26,7 +28,7 @@ export function resolveAlloyPlugins(
     componentPlugin(context),
     modelPlugin(context),
     widgetPlugin(appDir),
-    componentEntriesPlugin(appDir, platform),
+    runtimeEntriesPlugin(context, platform),
   ];
 }
 
@@ -39,18 +41,18 @@ export function resolveAlloyPlugins(
  * Enumerate components on disk in production and add each as a Rolldown input
  * with an explicit chunk name (`alloy/controllers/<name>`). The build env's
  * `entryFileNames` callback uses the chunk name verbatim, so the file lands at
- * `Resources/alloy/controllers/<name>.js` and Titanium's CJS loader resolves
- * the dynamic require against it.
+ * `Resources/alloy/controllers/<name>.js` (or `Resources/alloy/models/<name>.js`)
+ * and Titanium's CJS loader resolves the dynamic require against it.
  */
 const VIRTUAL_PREFIX = "\0virtual:titanium/alloy-entry:";
 
-function componentEntriesPlugin(appDir: string, platform: Platform): Plugin {
+function runtimeEntriesPlugin(ctx: AlloyContext, platform: Platform): Plugin {
   // Map virtual entry id → absolute source file path. Populated by
-  // `collectControllers` and consumed by `resolveId`/`load`.
-  const entries = collectControllers(appDir, platform);
+  // `collectRuntimeEntries` and consumed by `resolveId`/`load`.
+  const entries = collectRuntimeEntries(ctx, platform);
 
   return {
-    name: "titanium:alloy:component-entries",
+    name: "titanium:alloy:runtime-entries",
     apply: "build",
     enforce: "pre",
 
@@ -82,19 +84,96 @@ interface CollectedEntries {
   byVirtualId: Record<string, string>; // virtualId → absolute file path
 }
 
-function collectControllers(appDir: string, platform: Platform): CollectedEntries {
-  const controllersDir = path.join(appDir, "controllers");
+function collectRuntimeEntries(
+  ctx: AlloyContext,
+  platform: Platform,
+): CollectedEntries {
+  const { appDir, root: alloyRoot } = ctx;
   const byChunk: Record<string, string> = {};
   const byVirtualId: Record<string, string> = {};
 
+  const addEntry = (chunkName: string, virtualId: string, filePath: string) => {
+    byChunk[chunkName] = virtualId;
+    byVirtualId[virtualId] = filePath;
+  };
+
+  const collectDir = (
+    chunkRoot: string,
+    virtualRoot: string,
+    dir: string,
+    skipPlatformDirs = true,
+  ) => {
+    const walk = (currentDir: string, relBase = "") => {
+      if (!fs.existsSync(currentDir)) return;
+      for (const entry of fs.readdirSync(currentDir, { withFileTypes: true })) {
+        if (entry.isDirectory()) {
+          // platform override dirs (e.g. `controllers/android/`) are merged into
+          // their base name by Alloy's compiler; the compiler picks the right
+          // variant. Skip platform subtrees so we emit one chunk per logical
+          // component.
+          if (skipPlatformDirs) {
+            if (entry.name === platform) continue;
+            if (entry.name === "android" || entry.name === "ios") continue;
+          }
+          walk(path.join(currentDir, entry.name), path.join(relBase, entry.name));
+          continue;
+        }
+        if (!/\.(js|ts)$/.test(entry.name)) continue;
+        const name = path
+          .join(relBase, entry.name.replace(/\.(js|ts)$/, ""))
+          .replace(/\\/g, "/");
+        const chunkName = `${chunkRoot}/${name}`;
+        const virtualId = `${VIRTUAL_PREFIX}${virtualRoot}/${name}`;
+        addEntry(chunkName, virtualId, path.join(currentDir, entry.name));
+      }
+    };
+
+    walk(dir);
+  };
+
+  collectDir(
+    "alloy/controllers",
+    "controllers",
+    path.join(appDir, "controllers"),
+  );
+  collectDir("alloy/models", "models", path.join(appDir, "models"));
+  const widgetsDir = path.join(appDir, "widgets");
+  if (fs.existsSync(widgetsDir)) {
+    for (const widget of fs.readdirSync(widgetsDir, { withFileTypes: true })) {
+      if (!widget.isDirectory()) continue;
+      collectWidgetModels(appDir, widget.name, platform, byChunk, byVirtualId);
+    }
+  }
+
+  for (const adapterType of getConfiguredSyncAdapters(ctx.compiler.config.adapters)) {
+    const adapterFile = path.join(
+      alloyRoot,
+      "lib/alloy/sync",
+      `${adapterType}.js`,
+    );
+    if (!fs.existsSync(adapterFile)) continue;
+    addEntry(
+      `alloy/sync/${adapterType}`,
+      `${VIRTUAL_PREFIX}sync/${adapterType}`,
+      adapterFile,
+    );
+  }
+
+  return { byChunk, byVirtualId };
+}
+
+function collectWidgetModels(
+  appDir: string,
+  widgetId: string,
+  platform: Platform,
+  byChunk: Record<string, string>,
+  byVirtualId: Record<string, string>,
+) {
+  const modelsDir = path.join(appDir, "widgets", widgetId, "models");
   const walk = (dir: string, relBase = "") => {
     if (!fs.existsSync(dir)) return;
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       if (entry.isDirectory()) {
-        // platform override dirs (e.g. `controllers/android/`) are merged into
-        // their base name by Alloy's compiler; the compiler picks the right
-        // variant. Skip platform subtrees so we emit one chunk per logical
-        // controller.
         if (entry.name === platform) continue;
         if (entry.name === "android" || entry.name === "ios") continue;
         walk(path.join(dir, entry.name), path.join(relBase, entry.name));
@@ -104,13 +183,17 @@ function collectControllers(appDir: string, platform: Platform): CollectedEntrie
       const name = path
         .join(relBase, entry.name.replace(/\.(js|ts)$/, ""))
         .replace(/\\/g, "/");
-      const chunkName = `alloy/controllers/${name}`;
-      const virtualId = `${VIRTUAL_PREFIX}controllers/${name}`;
+      const chunkName = `alloy/widgets/${widgetId}/models/${name}`;
+      const virtualId = `${VIRTUAL_PREFIX}widgets/${widgetId}/models/${name}`;
       byChunk[chunkName] = virtualId;
       byVirtualId[virtualId] = path.join(dir, entry.name);
     }
   };
 
-  walk(controllersDir);
-  return { byChunk, byVirtualId };
+  walk(modelsDir);
+}
+
+function getConfiguredSyncAdapters(adapters: string | string[] | undefined) {
+  if (!adapters) return DEFAULT_SYNC_ADAPTERS;
+  return Array.isArray(adapters) ? adapters : [adapters];
 }

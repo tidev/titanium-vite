@@ -12,6 +12,7 @@ declare module "alloy-compiler" {
     theme: string;
     buildLog: unknown;
     backbone?: string;
+    adapters?: string | string[];
   }
 
   export interface AlloyCompiler {

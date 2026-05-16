@@ -6,8 +6,9 @@ import { TI_BRIDGE_PLUGIN_NAME } from "@titanium/vite-utils";
 const debug = createDebugger("titanium:vite:bridge");
 
 /**
- * Externalize Titanium native module IDs declared in `tiapp.xml`'s `<modules>`
- * block (e.g. `ti.editor`, `dk.napp.social`).
+ * Externalize Titanium native modules declared in `tiapp.xml`'s `<modules>`
+ * block and passed through the Titanium CLI bridge (e.g. `ti.editor`,
+ * `dk.napp.social`).
  *
  * These IDs are bare specifiers that look like regular npm packages to Vite,
  * so without this plugin Rolldown's resolver tries to find them on disk, fails,
@@ -15,8 +16,11 @@ const debug = createDebugger("titanium:vite:bridge");
  * via its native module registry, so we leave the bare specifier intact and
  * mark it external.
  *
- * The list is sourced from the Titanium CLI via the `ti-vite-bridge` plugin's
- * `context.nativeModules` — already filtered to the active build platform.
+ * The full declared list is sourced from the Titanium CLI via the
+ * `ti-vite-bridge` plugin's `context.nativeModules`, including modules for
+ * other platforms. Shared code may import those behind runtime guards, and
+ * those imports still need to stay external during bundling so Titanium's
+ * runtime loader can handle them on the platform where they actually exist.
  *
  * Must run before `titanium:force-bundle`, which would otherwise call
  * `require.resolve()` on the bare ID and return `null` (silently) — leaving
@@ -38,7 +42,7 @@ export function nativeModulesPlugin(): Plugin {
         throw new Error(`"${TI_BRIDGE_PLUGIN_NAME}" plugin not found.`);
       const bridge = bridgePlugin.api as TiBridgeApi;
       context = bridge.context;
-      nativeModules = new Set(context.nativeModules);
+      nativeModules = getNativeModuleIds(context.nativeModules);
     },
 
     // `buildStart` is per-environment. `corePlugin.builder.buildApp` only builds
@@ -64,4 +68,16 @@ export function nativeModulesPlugin(): Plugin {
       return { id, external: true, moduleSideEffects: false };
     },
   };
+}
+
+function getNativeModuleIds(
+  declaredNativeModules: TiBridgeApi["context"]["nativeModules"],
+): Set<string> {
+  const nativeModules = new Set<string>();
+
+  for (const nativeModule of declaredNativeModules ?? []) {
+    nativeModules.add(nativeModule.id);
+  }
+
+  return nativeModules;
 }

@@ -2,16 +2,23 @@ export type ProjectType = "alloy" | "classic";
 
 export type Platform = "android" | "ios";
 
+export interface TiNativeModule {
+  [key: string]: unknown;
+  id: string;
+  version?: string;
+  platform?: string;
+}
+
 export interface TiViteContext {
   platform: string;
   deployType: string;
   target?: string;
   /**
-   * IDs of native (and CommonJS) modules declared in `tiapp.xml`, already
-   * filtered to those that apply to the active build platform. The Vite
-   * pipeline externalizes these so Titanium's runtime loader resolves them.
+   * Native (and CommonJS) modules declared in `tiapp.xml`. This includes all
+   * declared modules, not only those matching the active build platform, so
+   * guarded cross-platform imports can still be externalized during bundling.
    */
-  nativeModules: string[];
+  nativeModules?: TiNativeModule[];
 }
 
 export interface TiBridgeApi {
