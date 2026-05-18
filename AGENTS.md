@@ -58,6 +58,7 @@ Vite-based dev environment + plugin set for the Titanium SDK. Experimental, acti
   Consumers get pre-emit types — keep `src/index.ts` clean of build-only constructs.
 - `postinstall` runs `pnpm dlx sherif@latest` to detect cross-workspace dependency drift.
 - ESM-only. Every package has `"type": "module"`.
+- Keep `docs/alloy-esm-migration-notes.md` updated when changing Alloy/Vite ESM behavior, app-source migration requirements, or runtime interop assumptions. Treat it as a concise scratchpad for a future full migration guide.
 
 ## ANTI-PATTERNS (THIS PROJECT)
 - `@typescript-eslint/no-non-null-assertion: error` — no `x!`. Also matches the user's global rule.
