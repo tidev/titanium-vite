@@ -6,6 +6,7 @@ import type { ResolvedId } from 'rolldown';
 import type { DevEnvironment, EnvironmentModuleNode, Plugin, ResolvedConfig } from 'vite';
 import { createFilter } from 'vite';
 
+import { assertNoLegacyCommonJsExport } from './commonjs-exports.js';
 import type { AlloyContext } from './context.js';
 
 const controllerRE =
@@ -121,6 +122,7 @@ export function componentPlugin(ctx: AlloyContext): Plugin {
 			const cleanId = cleanUrl(id);
 
 			if (!query.alloy) {
+				assertNoLegacyCommonJsExport(code, cleanId, 'controller');
 				ctx.compiler.purgeStyleCache(cleanId);
 				const {
 					code: controllerCode,
