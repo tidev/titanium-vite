@@ -1,6 +1,6 @@
-# Alloy ESM Migration Notes
+# Alloy ESM Migration Guide Notes
 
-Scratchpad for later migration-guide writing. Keep concise.
+Base notes for a general Alloy ESM migration guide. Keep concise.
 
 ## Current Direction
 
@@ -30,6 +30,32 @@ Scratchpad for later migration-guide writing. Keep concise.
   exports.definition = {};
   ```
 
+## Migration Codemod
+
+- Use the reusable jscodeshift package for app-source migrations:
+  ```bash
+  npx @titanium/vite-codemod migrate-cjs-exports path/to/app
+  npx @titanium/vite-codemod migrate-cjs-exports path/to/app --check
+  ```
+- The codemod rewrites inline CommonJS exports to inline ESM declarations where safe:
+  ```js
+  exports.open = () => {};
+  ```
+  becomes:
+  ```js
+  export const open = () => {};
+  ```
+- Reference exports become ESM export lists, preserving aliases when needed:
+  ```js
+  exports.open = show;
+  ```
+  becomes:
+  ```js
+  export { show as open };
+  ```
+- If `exports.name = ...` would collide with an existing local or imported `name`, the codemod fails that file instead of inventing a helper alias. Rename the existing binding or migrate that export manually so the public export name stays intentional.
+- The walker skips generated/dependency directories such as `Resources`, `build`, `dist`, `modules`, `node_modules`, `plugins`, and `references`.
+
 ## Vite Runtime Notes
 
 - Alloy model/controller files are dynamically loaded by Alloy/Titanium, so Vite/Rolldown entry exports must be preserved.
@@ -38,6 +64,4 @@ Scratchpad for later migration-guide writing. Keep concise.
 
 ## Known Follow-Up
 
-- Lambus app currently has many remaining `exports.*` controller/widget/lib sites.
-- Only the startup-critical Lambus files were migrated during the blank-screen fix.
-- Finish the broader migration after `lambus-platform/lambus-titanium#638` lands.
+- Expand these notes into a full migration guide before publishing the codemod broadly.
