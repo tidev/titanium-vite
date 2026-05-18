@@ -1,0 +1,59 @@
+{
+  "name": "@titanium/vite-codemod",
+  "version": "0.1.0",
+  "description": "Codemods for migrating Titanium and Alloy apps to Titanium Vite conventions.",
+  "type": "module",
+  "files": [
+    "dist/**/*.d.ts",
+    "dist/**/*.d.ts.map",
+    "dist/**/*.js",
+    "dist/**/*.js.map",
+    "!dist/**/*.spec.*",
+    "src",
+    "!src/**/*.spec.ts",
+    "transforms",
+    "!transforms/**/*.spec.*",
+    "README.md"
+  ],
+  "bin": {
+    "vite-codemod": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf .turbo node_modules",
+    "dev": "tsc",
+    "lint": "eslint",
+    "format": "prettier --check . --ignore-path ../../.gitignore",
+    "prepack": "pnpm build",
+    "test": "vitest run",
+    "test:watch": "vitest --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "alloy",
+    "codemod",
+    "titanium"
+  ],
+  "license": "ISC",
+  "dependencies": {
+    "jscodeshift": "^17.3.0"
+  },
+  "devDependencies": {
+    "@repo/eslint-config": "workspace:*",
+    "@repo/prettier-config": "workspace:*",
+    "@repo/tsconfig": "workspace:*",
+    "@types/jscodeshift": "^17.3.0",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "prettier": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "prettier": "@repo/prettier-config"
+}
