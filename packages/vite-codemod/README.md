@@ -23,7 +23,6 @@ The codemod currently handles:
 - `exports.name = function () {};`
 - `exports.name = value;`
 - `const local = (exports.name = () => {});`
-- `export const name = ...` declarations that need to be normalized for Alloy compiler compatibility
 
 If an inline `exports.name = ...` assignment would collide with an existing local or imported `name` binding, the transform fails for that file instead of inventing a generated alias. Rename the conflicting binding or migrate that export manually so the resulting ESM keeps intentional names.
 

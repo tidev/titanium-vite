@@ -8,20 +8,9 @@ module.exports.parser = "babel";
 
 function migrateCjsExportsSource(source, filePath = "<source>") {
   const exportSpecs = [];
-  const firstPass = migrateExportConstDeclarations(source, exportSpecs);
-  const secondPass = migrateConstWrappedExports(firstPass, exportSpecs);
-  const thirdPass = migrateDirectExports(secondPass, exportSpecs, filePath);
-  return appendExportSpecs(thirdPass, exportSpecs);
-}
-
-function migrateExportConstDeclarations(source, exportSpecs) {
-  return source.replace(
-    /^(\s*)export\s+const\s+([A-Za-z_$][\w$]*)\s*=/gm,
-    (_match, indent, exportName) => {
-      exportSpecs.push(exportName);
-      return `${indent}const ${exportName} =`;
-    },
-  );
+  const firstPass = migrateConstWrappedExports(source, exportSpecs);
+  const secondPass = migrateDirectExports(firstPass, exportSpecs, filePath);
+  return appendExportSpecs(secondPass, exportSpecs);
 }
 
 function migrateConstWrappedExports(source, exportSpecs) {
@@ -53,32 +42,28 @@ function migrateDirectExports(source, exportSpecs, filePath) {
       /^(\s*)exports\.([A-Za-z_$][\w$]*)\s*=\s*async\s*\(/gm,
       (_match, indent, exportName, offset) => {
         assertNoLocalBinding(source, exportName, filePath, offset);
-        exportSpecs.push(exportName);
-        return `${indent}const ${exportName} = async (`;
+        return `${indent}export const ${exportName} = async (`;
       },
     )
     .replace(
       /^(\s*)exports\.([A-Za-z_$][\w$]*)\s*=\s*\(/gm,
       (_match, indent, exportName, offset) => {
         assertNoLocalBinding(source, exportName, filePath, offset);
-        exportSpecs.push(exportName);
-        return `${indent}const ${exportName} = (`;
+        return `${indent}export const ${exportName} = (`;
       },
     )
     .replace(
       /^(\s*)exports\.([A-Za-z_$][\w$]*)\s*=\s*function\b/gm,
       (_match, indent, exportName, offset) => {
         assertNoLocalBinding(source, exportName, filePath, offset);
-        exportSpecs.push(exportName);
-        return `${indent}const ${exportName} = function`;
+        return `${indent}export const ${exportName} = function`;
       },
     )
     .replace(
       /^(\s*)exports\.([A-Za-z_$][\w$]*)\s*=\s*([^;\n]+);(\s*(?=\n|$))/gm,
       (_match, indent, exportName, value, trailing, offset) => {
         assertNoLocalBinding(source, exportName, filePath, offset);
-        exportSpecs.push(exportName);
-        return `${indent}const ${exportName} = ${value};${trailing}`;
+        return `${indent}export const ${exportName} = ${value};${trailing}`;
       },
     );
 }

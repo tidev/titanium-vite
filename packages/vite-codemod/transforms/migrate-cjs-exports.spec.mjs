@@ -33,13 +33,13 @@ describe("migrate-cjs-exports", () => {
 
   test("converts inline arrow function exports to exported const declarations", () => {
     expect(run("exports.open = () => {\n\tshow();\n};\n")).toBe(
-      "const open = () => {\n\tshow();\n};\n\nexport {\n\topen,\n};\n",
+      "export const open = () => {\n\tshow();\n};\n",
     );
   });
 
   test("converts simple expression exports to exported const declarations", () => {
     expect(run("exports.waypointId = waypoint._id;\n")).toBe(
-      "const waypointId = waypoint._id;\n\nexport {\n\twaypointId,\n};\n",
+      "export const waypointId = waypoint._id;\n",
     );
   });
 
@@ -75,19 +75,19 @@ describe("migrate-cjs-exports", () => {
     );
   });
 
-  test("normalizes export const declarations for Alloy compiler compatibility", () => {
+  test("leaves existing ESM export const declarations unchanged", () => {
     expect(run("export const open = () => {};\n")).toBe(
-      "const open = () => {};\n\nexport {\n\topen,\n};\n",
+      "export const open = () => {};\n",
     );
   });
 
-  test("preserves local references to normalized export const declarations", () => {
+  test("leaves same-file references to existing ESM export const declarations unchanged", () => {
     expect(
       run(
         "export const BookingType = { CAR: 'car' };\nexport const Types = [BookingType.CAR];\n",
       ),
     ).toBe(
-      "const BookingType = { CAR: 'car' };\nconst Types = [BookingType.CAR];\n\nexport {\n\tBookingType,\n\tTypes,\n};\n",
+      "export const BookingType = { CAR: 'car' };\nexport const Types = [BookingType.CAR];\n",
     );
   });
 });
