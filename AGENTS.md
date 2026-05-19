@@ -14,7 +14,6 @@ Vite-based dev environment + plugin set for the Titanium SDK. Experimental, acti
 │   ├── vite-plugin-titanium/         # @titanium-sdk/vite-plugin-titanium — main plugin
 │   ├── vite-plugin-titanium-alloy/   # @titanium-sdk/vite-plugin-titanium-alloy — Alloy MVC support
 │   ├── vite-titanium-environment/    # @titanium-sdk/vite-titanium-environment — custom Vite environment
-│   ├── cj-module-lexer/              # @titanium-sdk/cj-module-lexer — CommonJS require() lexer
 │   ├── polyfills/                    # @titanium-sdk/polyfills — TextEncoder/URL stubs for Ti runtime
 │   └── utils/                        # @titanium-sdk/vite-utils — TiBridgeApi, ProjectType, Platform
 ├── tooling/
@@ -44,6 +43,7 @@ Vite-based dev environment + plugin set for the Titanium SDK. Experimental, acti
 |------|----------|
 | Alloy | `../alloy` |
 | Alloy DevKit | `../alloy-devkit` |
+| Titanium CLI | `../titanium-cli` |
 | Titanium SDK | `../titanium_mobile` |
 | Lambus Titanium App | `../lambus-titanium` |
 
@@ -69,14 +69,14 @@ Vite-based dev environment + plugin set for the Titanium SDK. Experimental, acti
   - `packages/vite-plugin-titanium-alloy/src/context.ts:86` — `webpack: false` hardcoded.
   - `packages/vite-plugin-titanium-alloy/src/core.ts:148` — controller `.default` patching disabled pending per-project ESM-mode control.
 - Legacy bare-module → project-root resolution (`shared/resolve.ts:84`) exists for pre-Ti7 compat. Do not extend.
-- `eval` is tolerated only in `cj-module-lexer/src/index.ts` for dynamic-require evaluation. Don't introduce elsewhere.
+- Don't introduce `eval`.
 
 ## COMMANDS
 ```bash
 pnpm install            # also runs sherif workspace check
 pnpm dev                # turbo watch dev — persistent, no cache
 pnpm build              # turbo build (deps-first, tsc per package)
-pnpm test               # vitest (only @titanium-sdk/cj-module-lexer has tests today)
+pnpm test               # vitest
 pnpm typecheck
 pnpm lint / lint:fix    # cached at .cache/.eslintcache
 pnpm format             # prettier --cache .cache/.prettiercache
@@ -89,4 +89,4 @@ ti build                # Titanium CLI; relies on built plugins
 - Bridge plan (`docs/ti-bridge-plan.md`) is **partially implemented**: `TiBridgeApi` types and `tiSymbolsPlugin`'s `reportTiApiUsage` callback live here; the Titanium-CLI side (`createTiViteBridge`, `buildId` validation, sidecar fallback) is in the Titanium SDK repo, not this one.
 - `tiSymbolsPlugin` is `apply: "build"` only — symbol data is not collected in dev.
 - No CI workflows in `.github/` yet.
-- Plugin packages have no tests; only `@titanium-sdk/cj-module-lexer` runs Vitest.
+- Plugin test coverage is still sparse; add focused Vitest coverage for behavior changes.
