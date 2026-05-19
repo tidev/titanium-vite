@@ -1,7 +1,7 @@
 import type { ServerResponse } from "node:http";
 import type { IncomingMessage, NextFunction } from "connect";
 import type { HotPayload, Plugin } from "vite";
-import { createTitaniumEnvironment } from "vite-titanium-environment";
+import { createTitaniumEnvironment } from "@titanium-sdk/vite-titanium-environment";
 
 /**
  * Core plugin for Titanium specific configuration.

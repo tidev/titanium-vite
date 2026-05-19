@@ -34,8 +34,8 @@ Base notes for a general Alloy ESM migration guide. Keep concise.
 
 - Use the reusable jscodeshift package for app-source migrations:
   ```bash
-  npx @titanium/vite-codemod migrate-cjs-exports path/to/app
-  npx @titanium/vite-codemod migrate-cjs-exports path/to/app --check
+  npx @titanium-sdk/vite-codemod migrate-cjs-exports path/to/app
+  npx @titanium-sdk/vite-codemod migrate-cjs-exports path/to/app --check
   ```
 - The codemod rewrites inline CommonJS exports to inline ESM declarations where safe:
   ```js

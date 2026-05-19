@@ -1,4 +1,4 @@
-import baseConfig from "@repo/eslint-config/base";
+import baseConfig from "@titanium-sdk/eslint-config/base";
 
 /** @type {import('typescript-eslint').Config} */
 export default [

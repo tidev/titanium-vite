@@ -57,8 +57,8 @@ function printUsage() {
       ...transformNames.map((name) => `  - ${name}`),
       "",
       "Examples:",
-      "  npx @titanium/vite-codemod migrate-cjs-exports app",
-      "  npx @titanium/vite-codemod migrate-cjs-exports app --check",
+      "  npx @titanium-sdk/vite-codemod migrate-cjs-exports app",
+      "  npx @titanium-sdk/vite-codemod migrate-cjs-exports app --check",
     ].join("\n"),
   );
 }

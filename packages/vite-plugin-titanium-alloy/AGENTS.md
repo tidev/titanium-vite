@@ -1,4 +1,4 @@
-# vite-plugin-titanium-alloy
+# @titanium-sdk/vite-plugin-titanium-alloy
 
 ## OVERVIEW
 Vite integration for Alloy — Titanium's MVC framework. Wraps `alloy-compiler` to translate `app/views`, `app/styles`, `app/controllers`, `app/models`, `app/widgets` into runnable JS. Entry: `resolveAlloyPlugins(projectDir, platform)`.

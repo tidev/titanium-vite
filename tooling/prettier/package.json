@@ -1,5 +1,5 @@
 {
-  "name": "@repo/prettier-config",
+  "name": "@titanium-sdk/prettier-config",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -16,8 +16,8 @@
     "prettier": "catalog:"
   },
   "devDependencies": {
-    "@repo/tsconfig": "workspace:^0.1.0",
+    "@titanium-sdk/tsconfig": "workspace:^0.1.0",
     "typescript": "catalog:"
   },
-  "prettier": "@repo/prettier-config"
+  "prettier": "@titanium-sdk/prettier-config"
 }

@@ -8,7 +8,7 @@ export function polyfillsPlugin(): Plugin {
       this.emitFile({
         type: 'asset',
         fileName: 'polyfills.bootstrap.js',
-        source: await readFile(import.meta.resolve('@titanium/polyfills').replace('file://', ''))
+        source: await readFile(import.meta.resolve('@titanium-sdk/polyfills').replace('file://', ''))
       })
     }
   }

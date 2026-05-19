@@ -11,16 +11,16 @@ Vite-based dev environment + plugin set for the Titanium SDK. Experimental, acti
 ├── apps/
 │   └── titanium-vite-classic/        # reference Titanium "classic" app for testing plugins
 ├── packages/
-│   ├── vite-plugin-titanium/         # main plugin — composes shared + classic plugins
-│   ├── vite-plugin-titanium-alloy/   # Alloy MVC support (separate import path)
-│   ├── vite-titanium-environment/    # custom Vite environment (dev + build)
-│   ├── cj-module-lexer/              # CommonJS require() lexer (port of es-module-lexer)
-│   ├── polyfills/                    # @titanium/polyfills — TextEncoder/URL stubs for Ti runtime
-│   └── utils/                        # @titanium/vite-utils — TiBridgeApi, ProjectType, Platform
+│   ├── vite-plugin-titanium/         # @titanium-sdk/vite-plugin-titanium — main plugin
+│   ├── vite-plugin-titanium-alloy/   # @titanium-sdk/vite-plugin-titanium-alloy — Alloy MVC support
+│   ├── vite-titanium-environment/    # @titanium-sdk/vite-titanium-environment — custom Vite environment
+│   ├── cj-module-lexer/              # @titanium-sdk/cj-module-lexer — CommonJS require() lexer
+│   ├── polyfills/                    # @titanium-sdk/polyfills — TextEncoder/URL stubs for Ti runtime
+│   └── utils/                        # @titanium-sdk/vite-utils — TiBridgeApi, ProjectType, Platform
 ├── tooling/
-│   ├── eslint/                       # @repo/eslint-config — flat config, type-checked rules
-│   ├── prettier/                     # @repo/prettier-config — @ianvs sort-imports
-│   └── typescript/                   # @repo/tsconfig — strict + noUncheckedIndexedAccess
+│   ├── eslint/                       # @titanium-sdk/eslint-config — flat config, type-checked rules
+│   ├── prettier/                     # @titanium-sdk/prettier-config — @ianvs sort-imports
+│   └── typescript/                   # @titanium-sdk/tsconfig — strict + noUncheckedIndexedAccess
 ├── docs/ti-bridge-plan.md            # contract spec for Titanium ↔ Vite handoff
 ├── pnpm-workspace.yaml               # workspaces + dependency catalog
 └── turbo.json
@@ -50,7 +50,7 @@ Vite-based dev environment + plugin set for the Titanium SDK. Experimental, acti
 ## CONVENTIONS
 - **pnpm catalog** manages shared versions (`vite`, `vitest`, `typescript`, `eslint`, `prettier`, `zod`, `@types/node`). Reference as `"vite": "catalog:"` in package.json — never pin directly.
 - **TS**: `strict`, `noUncheckedIndexedAccess`, `noImplicitOverride`, `verbatimModuleSyntax`, `isolatedModules`, target `es2022`. tsbuildinfo cached at `.cache/tsbuildinfo.json`.
-- **ESLint** flat config (`@repo/eslint-config/base`) extends `recommendedTypeChecked` + `stylisticTypeChecked` — type-aware rules require `parserOptions.projectService: true`.
+- **ESLint** flat config (`@titanium-sdk/eslint-config/base`) extends `recommendedTypeChecked` + `stylisticTypeChecked` — type-aware rules require `parserOptions.projectService: true`.
 - Every package exports types from `src/index.ts` and JS from `dist/index.js`:
   ```json
   "exports": { ".": { "import": "./dist/index.js", "types": "./src/index.ts" } }
@@ -76,7 +76,7 @@ Vite-based dev environment + plugin set for the Titanium SDK. Experimental, acti
 pnpm install            # also runs sherif workspace check
 pnpm dev                # turbo watch dev — persistent, no cache
 pnpm build              # turbo build (deps-first, tsc per package)
-pnpm test               # vitest (only cj-module-lexer has tests today)
+pnpm test               # vitest (only @titanium-sdk/cj-module-lexer has tests today)
 pnpm typecheck
 pnpm lint / lint:fix    # cached at .cache/.eslintcache
 pnpm format             # prettier --cache .cache/.prettiercache
@@ -89,4 +89,4 @@ ti build                # Titanium CLI; relies on built plugins
 - Bridge plan (`docs/ti-bridge-plan.md`) is **partially implemented**: `TiBridgeApi` types and `tiSymbolsPlugin`'s `reportTiApiUsage` callback live here; the Titanium-CLI side (`createTiViteBridge`, `buildId` validation, sidecar fallback) is in the Titanium SDK repo, not this one.
 - `tiSymbolsPlugin` is `apply: "build"` only — symbol data is not collected in dev.
 - No CI workflows in `.github/` yet.
-- Plugin packages have no tests; only `cj-module-lexer` runs Vitest.
+- Plugin packages have no tests; only `@titanium-sdk/cj-module-lexer` runs Vitest.

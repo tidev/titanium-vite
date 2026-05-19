@@ -1,8 +1,8 @@
 import path from "node:path";
-import type { TiBridgeApi } from "@titanium/vite-utils";
+import type { TiBridgeApi } from "@titanium-sdk/vite-utils";
 import type { ESTree } from "rolldown/utils";
 import type { Plugin, ResolvedConfig } from "vite";
-import { cleanUrl, TI_BRIDGE_PLUGIN_NAME } from "@titanium/vite-utils";
+import { cleanUrl, TI_BRIDGE_PLUGIN_NAME } from "@titanium-sdk/vite-utils";
 import { normalizePath, parseSync, Visitor } from "vite";
 
 function memberToString(node: ESTree.Node): string | null {

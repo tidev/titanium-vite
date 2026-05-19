@@ -1,7 +1,7 @@
 import createDebugger from "debug";
-import type { TiBridgeApi } from "@titanium/vite-utils";
+import type { TiBridgeApi } from "@titanium-sdk/vite-utils";
 import type { Plugin } from "vite";
-import { TI_BRIDGE_PLUGIN_NAME } from "@titanium/vite-utils";
+import { TI_BRIDGE_PLUGIN_NAME } from "@titanium-sdk/vite-utils";
 
 const debug = createDebugger("titanium:vite:bridge");
 

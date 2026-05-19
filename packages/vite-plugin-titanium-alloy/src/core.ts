@@ -1,8 +1,8 @@
 import { createRequire } from "node:module";
 import path from "node:path";
-import type { Platform } from "@titanium/vite-utils";
+import type { Platform } from "@titanium-sdk/vite-utils";
 import type { Plugin } from "vite";
-import { cleanUrl } from "@titanium/vite-utils";
+import { cleanUrl } from "@titanium-sdk/vite-utils";
 
 import type { AlloyContext } from "./context.js";
 

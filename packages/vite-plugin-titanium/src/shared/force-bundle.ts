@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 import type { Plugin } from "vite";
-import { bareImportRE } from "@titanium/vite-utils";
+import { bareImportRE } from "@titanium-sdk/vite-utils";
 
 /**
  * Force-bundle plugin.

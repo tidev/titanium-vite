@@ -1,5 +1,5 @@
 {
-  "name": "@titanium/vite-utils",
+  "name": "@titanium-sdk/vite-utils",
   "version": "1.0.0",
   "description": "",
   "type": "module",
@@ -23,9 +23,9 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@repo/eslint-config": "workspace:*",
-    "@repo/prettier-config": "workspace:*",
-    "@repo/tsconfig": "workspace:*",
+    "@titanium-sdk/eslint-config": "workspace:*",
+    "@titanium-sdk/prettier-config": "workspace:*",
+    "@titanium-sdk/tsconfig": "workspace:*",
     "@types/debug": "^4.1.12",
     "@types/node": "catalog:",
     "dotenv-cli": "^7.4.2",
@@ -38,8 +38,8 @@
   "eslintConfig": {
     "root": true,
     "extends": [
-      "@repo/eslint-config/base"
+      "@titanium-sdk/eslint-config/base"
     ]
   },
-  "prettier": "@repo/prettier-config"
+  "prettier": "@titanium-sdk/prettier-config"
 }

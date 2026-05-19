@@ -3,7 +3,7 @@ import type { Plugin } from "vite";
 import { XMLParser } from "fast-xml-parser";
 import { normalizePath } from "vite";
 
-import type { ProjectType } from "@titanium/vite-utils";
+import type { ProjectType } from "@titanium-sdk/vite-utils";
 
 const I18N_PUBLIC_PATH = "/@titanium/i18n/";
 

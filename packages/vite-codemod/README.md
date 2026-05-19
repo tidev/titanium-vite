@@ -1,4 +1,4 @@
-# @titanium/vite-codemod
+# @titanium-sdk/vite-codemod
 
 Codemods for migrating Titanium and Alloy apps to Titanium Vite conventions.
 
@@ -9,8 +9,8 @@ The package delegates transform execution to `jscodeshift`.
 Converts legacy Alloy CommonJS controller/model export assignments to valid ESM export declarations.
 
 ```bash
-npx @titanium/vite-codemod migrate-cjs-exports path/to/app
-npx @titanium/vite-codemod migrate-cjs-exports path/to/app --check
+npx @titanium-sdk/vite-codemod migrate-cjs-exports path/to/app
+npx @titanium-sdk/vite-codemod migrate-cjs-exports path/to/app --check
 ```
 
 The command writes changes by default, matching standard `jscodeshift` behavior. Use `--check` or `--dry` to run without writing.

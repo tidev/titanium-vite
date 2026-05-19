@@ -1,4 +1,4 @@
-# cj-module-lexer
+# @titanium-sdk/cj-module-lexer
 
 ## OVERVIEW
 TypeScript port of `es-module-lexer`'s C state machine, retargeted at CommonJS `require()` calls. Walks source character-by-character with an open-token stack to find safe (statically-analyzable) and unsafe (dynamic) `require(...)` expressions — without parsing a full AST.
@@ -29,5 +29,5 @@ src/
 - Don't add ESM (`import`/`export`) detection. That belongs in upstream `es-module-lexer`. This package is CommonJS-only.
 
 ## NOTES
-- The only package in the monorepo with a Vitest suite (`pnpm -F cj-module-lexer test`).
+- The only package in the monorepo with a Vitest suite (`pnpm -F @titanium-sdk/cj-module-lexer test`).
 - No external runtime dependencies — just the lexer.

@@ -1,5 +1,5 @@
 {
-  "name": "vite-plugin-titanium",
+  "name": "@titanium-sdk/vite-plugin-titanium",
   "version": "1.0.0",
   "description": "",
   "type": "module",
@@ -17,24 +17,27 @@
     "format": "prettier --check . --ignore-path ../../.gitignore",
     "typecheck": "tsc --noEmit"
   },
-  "keywords": [],
+  "keywords": [
+    "titanium",
+    "vite-plugin"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@titanium/polyfills": "workspace:*",
-    "@titanium/vite-utils": "workspace:*",
+    "@titanium-sdk/polyfills": "workspace:*",
+    "@titanium-sdk/vite-utils": "workspace:*",
     "debug": "^4.4.0",
     "fast-xml-parser": "^5.0.8",
     "rolldown": "^1.0.0-rc.18",
     "tinyglobby": "^0.2.13",
     "vite-plugin-static-copy": "^3.3.0",
-    "vite-plugin-titanium-alloy": "workspace:*",
-    "vite-titanium-environment": "workspace:*"
+    "@titanium-sdk/vite-plugin-titanium-alloy": "workspace:*",
+    "@titanium-sdk/vite-titanium-environment": "workspace:*"
   },
   "devDependencies": {
-    "@repo/eslint-config": "workspace:*",
-    "@repo/prettier-config": "workspace:*",
-    "@repo/tsconfig": "workspace:*",
+    "@titanium-sdk/eslint-config": "workspace:*",
+    "@titanium-sdk/prettier-config": "workspace:*",
+    "@titanium-sdk/tsconfig": "workspace:*",
     "@types/connect": "^3.4.38",
     "@types/debug": "^4.1.12",
     "@types/node": "catalog:",
@@ -47,8 +50,8 @@
   "eslintConfig": {
     "root": true,
     "extends": [
-      "@repo/eslint-config/base"
+      "@titanium-sdk/eslint-config/base"
     ]
   },
-  "prettier": "@repo/prettier-config"
+  "prettier": "@titanium-sdk/prettier-config"
 }

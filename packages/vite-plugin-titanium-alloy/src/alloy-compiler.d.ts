@@ -1,5 +1,5 @@
 declare module "alloy-compiler" {
-  import type { Platform } from "@titanium/vite-utils";
+  import type { Platform } from "@titanium-sdk/vite-utils";
 
   export interface AlloyCompileConfig {
     alloyConfig: AlloyConfig;

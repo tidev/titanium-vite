@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { Platform } from "@titanium/vite-utils";
+import type { Platform } from "@titanium-sdk/vite-utils";
 import type { Plugin } from "vite";
 
 import { assetsPlugin } from "./assets.js";

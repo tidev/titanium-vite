@@ -1,8 +1,8 @@
-import type { Platform, ProjectType } from "@titanium/vite-utils";
+import type { Platform, ProjectType } from "@titanium-sdk/vite-utils";
 import type { Plugin } from "vite";
 import { moduleRunnerTransform } from "vite";
 
-import { resolveAlloyPlugins } from "vite-plugin-titanium-alloy";
+import { resolveAlloyPlugins } from "@titanium-sdk/vite-plugin-titanium-alloy";
 
 import { classicPlugin } from "./classic/index.js";
 import { corePlugin } from "./shared/core.js";

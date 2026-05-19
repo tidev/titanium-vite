@@ -1,5 +1,5 @@
 {
-  "name": "vite-plugin-titanium-alloy",
+  "name": "@titanium-sdk/vite-plugin-titanium-alloy",
   "version": "1.0.0",
   "description": "",
   "type": "module",
@@ -19,20 +19,24 @@
     "test:watch": "vitest --watch",
     "typecheck": "tsc --noEmit"
   },
-  "keywords": [],
+  "keywords": [
+    "alloy",
+    "titanium",
+    "vite-plugin"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@titanium/vite-utils": "workspace:*",
+    "@titanium-sdk/vite-utils": "workspace:*",
     "alloy-compiler": "^0.2.7",
     "alloy-utils": "^0.2.7",
     "fs-extra": "^11.3.0",
     "rolldown": "^1.0.0-rc.18"
   },
   "devDependencies": {
-    "@repo/eslint-config": "workspace:*",
-    "@repo/prettier-config": "workspace:*",
-    "@repo/tsconfig": "workspace:*",
+    "@titanium-sdk/eslint-config": "workspace:*",
+    "@titanium-sdk/prettier-config": "workspace:*",
+    "@titanium-sdk/tsconfig": "workspace:*",
     "@types/fs-extra": "^11.0.4",
     "@types/node": "catalog:",
     "eslint": "catalog:",
@@ -44,8 +48,8 @@
   "eslintConfig": {
     "root": true,
     "extends": [
-      "@repo/eslint-config/base"
+      "@titanium-sdk/eslint-config/base"
     ]
   },
-  "prettier": "@repo/prettier-config"
+  "prettier": "@titanium-sdk/prettier-config"
 }

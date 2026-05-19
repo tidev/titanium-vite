@@ -1,5 +1,5 @@
 {
-  "name": "@titanium/vite-codemod",
+  "name": "@titanium-sdk/vite-codemod",
   "version": "0.1.0",
   "description": "Codemods for migrating Titanium and Alloy apps to Titanium Vite conventions.",
   "type": "module",
@@ -45,9 +45,9 @@
     "jscodeshift": "^17.3.0"
   },
   "devDependencies": {
-    "@repo/eslint-config": "workspace:*",
-    "@repo/prettier-config": "workspace:*",
-    "@repo/tsconfig": "workspace:*",
+    "@titanium-sdk/eslint-config": "workspace:*",
+    "@titanium-sdk/prettier-config": "workspace:*",
+    "@titanium-sdk/tsconfig": "workspace:*",
     "@types/jscodeshift": "^17.3.0",
     "@types/node": "catalog:",
     "eslint": "catalog:",
@@ -55,5 +55,5 @@
     "typescript": "catalog:",
     "vitest": "catalog:"
   },
-  "prettier": "@repo/prettier-config"
+  "prettier": "@titanium-sdk/prettier-config"
 }

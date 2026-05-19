@@ -1,5 +1,5 @@
 {
-  "name": "titanium-vite-alloy",
+  "name": "@titanium-sdk/titanium-vite-alloy",
   "version": "1.0.0",
   "description": "",
   "type": "module",
@@ -15,6 +15,6 @@
   "devDependencies": {
     "alloy": "^3.0.0",
     "vite": "catalog:",
-    "vite-plugin-titanium": "workspace:*"
+    "@titanium-sdk/vite-plugin-titanium": "workspace:*"
   }
 }

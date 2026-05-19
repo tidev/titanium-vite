@@ -1,4 +1,4 @@
-import { cleanUrl, stripBase } from '@titanium/vite-utils';
+import { cleanUrl, stripBase } from '@titanium-sdk/vite-utils';
 import path from 'path';
 import qs from 'querystring';
 import fs from 'fs-extra';

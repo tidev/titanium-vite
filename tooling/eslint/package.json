@@ -1,5 +1,5 @@
 {
-  "name": "@repo/eslint-config",
+  "name": "@titanium-sdk/eslint-config",
   "version": "0.3.0",
   "private": true,
   "type": "module",
@@ -19,11 +19,11 @@
     "typescript-eslint": "8.15.0"
   },
   "devDependencies": {
-    "@repo/prettier-config": "workspace:*",
-    "@repo/tsconfig": "workspace:*",
+    "@titanium-sdk/prettier-config": "workspace:*",
+    "@titanium-sdk/tsconfig": "workspace:*",
     "eslint": "catalog:",
     "prettier": "catalog:",
     "typescript": "catalog:"
   },
-  "prettier": "@repo/prettier-config"
+  "prettier": "@titanium-sdk/prettier-config"
 }

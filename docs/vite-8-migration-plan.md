@@ -119,10 +119,10 @@ New shape of the plugin (`packages/vite-plugin-titanium/src/shared/ti-symbols.ts
 
 ```ts
 import path from "node:path";
-import type { TiBridgeApi } from "@titanium/vite-utils";
+import type { TiBridgeApi } from "@titanium-sdk/vite-utils";
 import type { Plugin, ResolvedConfig } from "vite";
 import type { ESTree } from "rolldown/utils";
-import { cleanUrl, TI_BRIDGE_PLUGIN_NAME } from "@titanium/vite-utils";
+import { cleanUrl, TI_BRIDGE_PLUGIN_NAME } from "@titanium-sdk/vite-utils";
 import { normalizePath, parseSync, Visitor } from "vite";
 
 function memberToString(node: ESTree.Expression | ESTree.Super): string | null {
@@ -280,7 +280,7 @@ Recommend the first.
 
 ## 4. Build target nuance
 
-We pin `target: 'ios13'` in two places (`vite-plugin-titanium/src/shared/core.ts:21`, `vite-titanium-environment/src/build.ts:14`). Vite 8 added iOS to default Oxc targets (changelog: "add ios to default esbuild targets" #21342, applied to Oxc by the compat layer). Our explicit pin overrides the default, but Oxc's lowering for `ios13` may differ from esbuild's:
+We pin `target: 'ios13'` in two places (`packages/vite-plugin-titanium/src/shared/core.ts:21`, `packages/vite-titanium-environment/src/build.ts:14`). Vite 8 added iOS to default Oxc targets (changelog: "add ios to default esbuild targets" #21342, applied to Oxc by the compat layer). Our explicit pin overrides the default, but Oxc's lowering for `ios13` may differ from esbuild's:
 
 - Oxc reportedly does **not lower native decorators** — we don't use decorators in plugin output, so this is fine for now.
 - Oxc's property-mangling options (`mangleProps`, `reserveProps`, etc.) are unsupported. We don't use these.
@@ -290,13 +290,13 @@ We pin `target: 'ios13'` in two places (`vite-plugin-titanium/src/shared/core.ts
 
 Each commit keeps `pnpm typecheck && pnpm build` (= `tsc` per package) clean. **End-to-end runtime validation (`ti build` of the classic app) happens only at the end** — between commits the plugin set is in a half-migrated state and a real Titanium build will crash on `info.ast`. Type compilation alone is the per-commit gate.
 
-1. `chore(workspace): bump vite to ^8.0.11 and vite-plugin-static-copy to ^3.3.0` — catalog bump + the only Vite-peer-dep bump that blocks Vite 8. Add `rolldown: ^1.0.0-rc.18` as a dep in both `vite-plugin-titanium` and `vite-plugin-titanium-alloy` (consumed by §3.2 and §3.3). Lockfile churn; expect type errors in the next commits.
-2. `refactor(env): rename rollupOptions to rolldownOptions` — `vite-titanium-environment/src/build.ts`.
+1. `chore(workspace): bump vite to ^8.0.11 and vite-plugin-static-copy to ^3.3.0` — catalog bump + the only Vite-peer-dep bump that blocks Vite 8. Add `rolldown: ^1.0.0-rc.18` as a dep in both `@titanium-sdk/vite-plugin-titanium` and `@titanium-sdk/vite-plugin-titanium-alloy` (consumed by §3.2 and §3.3). Lockfile churn; expect type errors in the next commits.
+2. `refactor(env): rename rollupOptions to rolldownOptions` — `packages/vite-titanium-environment/src/build.ts`.
 3. `refactor(alloy): source createFilter from vite, ResolvedId from rolldown` — `component.ts`; remove `@rollup/pluginutils` from `package.json`.
 4. `refactor(plugin): rewrite tiSymbolsPlugin on parseSync + Visitor` — `ti-symbols.ts`. Removes `moduleParsed`/`rollup`/`estree` deps. **This is the commit that unbreaks runtime builds.**
 5. `refactor(plugin): drop dead esbuild.supported.top-level-await flag` — `core.ts`. No `oxc` replacement (no TLA in source).
 6. `refactor(alloy): rewrite optimizeDeps.entries without extglobs` — `core.ts`.
-7. `chore: drop unused rollup devDeps and @types/estree` — `vite-plugin-titanium` and `vite-plugin-titanium-alloy`.
+7. `chore: drop unused rollup devDeps and @types/estree` — `@titanium-sdk/vite-plugin-titanium` and `@titanium-sdk/vite-plugin-titanium-alloy`.
 8. `chore(docs): note Vite 8 baseline in AGENTS.md`.
 
 ## 6. Validation
@@ -314,7 +314,7 @@ Each commit keeps `pnpm typecheck && pnpm build` (= `tsc` per package) clean. **
 - Replace `@rollup/plugin-node-resolve` with a small custom `resolveId` plugin scoped to `app/lib`, eliminating the last Rollup-plugin dependency. Gate on having an Alloy fixture in the repo first — Classic doesn't exercise this path. Re-evaluate sooner if Vite 9 deprecates Rollup-plugin compat.
 - Add a content-hash cache to `tiSymbolsPlugin.transform` if prod-build profiling shows the per-file `parseSync` cost matters.
 - Drop the `as TiBridgeApi` cast in `configResolved` once the bridge plugin's `api` field is properly typed.
-- Add at least smoke-level tests to `vite-plugin-titanium` and `vite-plugin-titanium-alloy` so future Vite bumps aren't gated on a manual `ti build` run.
+- Add at least smoke-level tests to `@titanium-sdk/vite-plugin-titanium` and `@titanium-sdk/vite-plugin-titanium-alloy` so future Vite bumps aren't gated on a manual `ti build` run.
 
 ## 8. Unresolved questions
 

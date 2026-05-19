@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "path";
-import type { Platform, ProjectType } from "@titanium/vite-utils";
+import type { Platform, ProjectType } from "@titanium-sdk/vite-utils";
 import type { Plugin } from "vite";
-import { bareImportRE, FS_PREFIX, otherPlatform } from "@titanium/vite-utils";
+import { bareImportRE, FS_PREFIX, otherPlatform } from "@titanium-sdk/vite-utils";
 import { normalizePath } from "vite";
 
 export interface ResolvePluginOptions {

@@ -1,7 +1,7 @@
-# vite-plugin-titanium
+# @titanium-sdk/vite-plugin-titanium
 
 ## OVERVIEW
-Composite Vite plugin for the Titanium SDK. `titanium({ projectType, platform })` returns an array of Vite plugins. Branches between `"classic"` and `"alloy"` project types; Alloy plugins ship from `vite-plugin-titanium-alloy` and are not exported here.
+Composite Vite plugin for the Titanium SDK. `titanium({ projectType, platform })` returns an array of Vite plugins. Branches between `"classic"` and `"alloy"` project types; Alloy plugins ship from `@titanium-sdk/vite-plugin-titanium-alloy` and are not exported here.
 
 ## STRUCTURE
 ```
@@ -10,7 +10,7 @@ src/
 ├── shared/              # plugins active for every projectType
 │   ├── core.ts            # Vite config defaults + /invoke dev middleware
 │   ├── module-runner.ts   # SSR/runner transform plugin
-│   ├── polyfills.ts       # injects @titanium/polyfills
+│   ├── polyfills.ts       # injects @titanium-sdk/polyfills
 │   ├── node-builtins.ts   # Node built-ins shimming
 │   ├── resolve.ts         # platform-aware bare/absolute id resolution
 │   ├── ti-symbols.ts      # AST walk: collects Ti.*/Titanium.* usage; reports via TiBridgeApi
@@ -37,12 +37,12 @@ src/
 - Order matters: `enforce: "pre"` for `resolvePlugin`, `enforce: "post"` for `tiSymbolsPlugin` and the `moduleRunnerTransformPlugin`.
 - `tiSymbolsPlugin` is `apply: "build"` only — never read symbol data in dev hooks.
 - `moduleRunnerTransformPlugin` skips `app.js` (the Titanium entry). Mirror that exclusion if you add chunks that must remain untransformed.
-- This package depends on `vite-titanium-environment` for `createTitaniumEnvironment()`, registered in `shared/core.ts`.
+- This package depends on `@titanium-sdk/vite-titanium-environment` for `createTitaniumEnvironment()`, registered in `shared/core.ts`.
 
 ## ANTI-PATTERNS
-- Don't read `process.env` directly — the bridge context (`TiBridgeApi.context` from `@titanium/vite-utils`) is the documented channel; env-var fallbacks emit migration warnings per `docs/ti-bridge-plan.md`.
+- Don't read `process.env` directly — the bridge context (`TiBridgeApi.context` from `@titanium-sdk/vite-utils`) is the documented channel; env-var fallbacks emit migration warnings per `docs/ti-bridge-plan.md`.
 - Don't extend `tryProjectRootResolve` in `shared/resolve.ts:79` — it's pre-Ti7 legacy compat (the deprecation note at `:84` says it "was supposed to be removed in Titanium 7.0 but never happened").
-- `validatePlatform` only accepts `"ios" | "android"`. To add a platform, update `Platform` in `@titanium/vite-utils` first; don't widen the check inline.
+- `validatePlatform` only accepts `"ios" | "android"`. To add a platform, update `Platform` in `@titanium-sdk/vite-utils` first; don't widen the check inline.
 
 ## NOTES
 - Build is plain `tsc` (no Rollup). `dist/index.js` is the published entry; consumers get types straight from `src/index.ts` (see `package.json` `exports`).

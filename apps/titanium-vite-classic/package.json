@@ -1,5 +1,5 @@
 {
-  "name": "titanium-vite-classic",
+  "name": "@titanium-sdk/titanium-vite-classic",
   "version": "1.0.0",
   "description": "",
   "type": "module",
@@ -14,6 +14,6 @@
   },
   "devDependencies": {
     "vite": "catalog:",
-    "vite-plugin-titanium": "workspace:*"
+    "@titanium-sdk/vite-plugin-titanium": "workspace:*"
   }
 }

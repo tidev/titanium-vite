@@ -1,3 +1,3 @@
-import baseConfig from "@repo/eslint-config/base";
+import baseConfig from "@titanium-sdk/eslint-config/base";
 
 export default [...baseConfig];
