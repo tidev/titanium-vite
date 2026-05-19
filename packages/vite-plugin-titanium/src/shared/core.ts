@@ -67,8 +67,12 @@ export function corePlugin(): Plugin {
         }
 
         const rawBody = await getBody(req);
-        const payload = JSON.parse(rawBody) as HotPayload;
-        console.log('Titanium invoke middleware', payload);
+        const payload = parseHotPayload(JSON.parse(rawBody));
+        if (!payload) {
+          res.writeHead(400, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: { message: "Invalid invoke payload" } }));
+          return;
+        }
         const result =
           await server.environments.titanium?.hot.handleInvoke(payload);
 
@@ -80,4 +84,23 @@ export function corePlugin(): Plugin {
       server.middlewares.use(titaniumInvokeMiddleware);
     },
   };
+}
+
+function parseHotPayload(value: unknown): HotPayload | null {
+  if (!isRecord(value)) return null;
+
+  if (value.type === "custom") {
+    if (typeof value.event !== "string") return null;
+    return {
+      type: "custom",
+      event: value.event,
+      data: value.data,
+    };
+  }
+
+  return null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

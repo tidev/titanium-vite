@@ -10,9 +10,13 @@ export interface TiNativeModule {
 }
 
 export interface TiViteContext {
+  command?: "build" | "serve";
   platform: string;
-  deployType: string;
+  deployType?: string;
   target?: string;
+  devServer?: {
+    origin: string;
+  };
   /**
    * Native (and CommonJS) modules declared in `tiapp.xml`. This includes all
    * declared modules, not only those matching the active build platform, so

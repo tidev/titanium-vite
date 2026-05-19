@@ -27,6 +27,7 @@ export function forceBundlePlugin(): Plugin {
     },
 
     resolveId(source, importer) {
+      if (this.environment.config.command === "serve") return null;
       if (!bareImportRE.test(source)) return null;
 
       const fromDir = importer ?? projectDir;
