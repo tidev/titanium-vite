@@ -1,11 +1,18 @@
 import type { FetchFunctionOptions, FetchResult } from "vite/module-runner";
-import type { DevEnvironmentContext, ResolvedConfig } from "vite";
+import type {
+  DevEnvironmentContext,
+  EnvironmentOptions,
+  ResolvedConfig,
+} from "vite";
 import { DevEnvironment } from "vite";
 
 import { nodeCompatBuiltins } from "./constants.js";
 
 const FS_PREFIX = "/@fs";
-const TITANIUM_BUILTIN_PREFIX = "/titanium:builtin:";
+const VALID_ID_PREFIX = "/@id/";
+const NULL_BYTE_PLACEHOLDER = "__x00__";
+
+type EnvironmentBuiltin = string | RegExp;
 
 export function createTitaniumDevEnvironment(
   name: string,
@@ -34,16 +41,26 @@ export function createTitaniumDevEnvironment(
 
   const titaniumDevEnvironment = new TitaniumDevEnvironment(name, config, {
     ...context,
-    options: {
-      consumer: "client",
-      optimizeDeps: {
-        noDiscovery: false,
-      },
-      resolve: { builtins: [...nodeCompatBuiltins] },
-      ...context.options,
-    },
+    options: createTitaniumDevEnvironmentOptions(context.options),
   });
   return titaniumDevEnvironment;
+}
+
+export function createTitaniumDevEnvironmentOptions(
+  options: EnvironmentOptions = {},
+): EnvironmentOptions {
+  return {
+    ...options,
+    consumer: "client",
+    optimizeDeps: {
+      ...options.optimizeDeps,
+      noDiscovery: false,
+    },
+    resolve: {
+      ...options.resolve,
+      builtins: [...nodeCompatBuiltins, ...(options.resolve?.builtins ?? [])],
+    },
+  };
 }
 
 class TitaniumDevEnvironment extends DevEnvironment {
@@ -52,9 +69,13 @@ class TitaniumDevEnvironment extends DevEnvironment {
     importer?: string,
     options?: FetchFunctionOptions,
   ): Promise<FetchResult> {
-    if (id.startsWith(TITANIUM_BUILTIN_PREFIX)) {
+    const builtinId = resolveEnvironmentBuiltinId(
+      id,
+      this.config.resolve.builtins,
+    );
+    if (builtinId) {
       return {
-        externalize: id.slice(TITANIUM_BUILTIN_PREFIX.length),
+        externalize: builtinId,
         type: "builtin",
       };
     }
@@ -81,13 +102,6 @@ class TitaniumDevEnvironment extends DevEnvironment {
     const resolved = await this.pluginContainer.resolveId(id, importer);
     if (!resolved) {
       return super.fetchModule(id, importer, options);
-    }
-
-    if (resolved.id.startsWith(TITANIUM_BUILTIN_PREFIX)) {
-      return {
-        externalize: resolved.id.slice(TITANIUM_BUILTIN_PREFIX.length),
-        type: "builtin",
-      };
     }
 
     const optimizedId = await this.resolveOptimizedDependency(id, resolved.id);
@@ -123,6 +137,27 @@ interface NodeModuleRequest {
 
 function isBareModuleRequest(id: string): boolean {
   return !id.startsWith(".") && !id.startsWith("/") && !id.startsWith("file:");
+}
+
+export function resolveEnvironmentBuiltinId(
+  id: string,
+  builtins: readonly EnvironmentBuiltin[],
+): string | null {
+  const unwrappedId = unwrapViteId(id);
+  const isBuiltin = builtins.some((builtin) =>
+    typeof builtin === "string" ? builtin === unwrappedId : builtin.test(unwrappedId),
+  );
+  return isBuiltin ? unwrappedId : null;
+}
+
+function unwrapViteId(id: string): string {
+  if (!id.startsWith(VALID_ID_PREFIX)) {
+    return id;
+  }
+
+  return id
+    .slice(VALID_ID_PREFIX.length)
+    .replace(NULL_BYTE_PLACEHOLDER, "\0");
 }
 
 function isNodeModuleJavaScript(id: string): boolean {
