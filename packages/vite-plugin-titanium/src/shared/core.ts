@@ -1,7 +1,60 @@
-import type { ServerResponse } from "node:http";
 import type { IncomingMessage, NextFunction } from "connect";
-import type { HotPayload, Plugin } from "vite";
+import type { ServerResponse } from "node:http";
+import type { DevEnvironment, HotPayload, Plugin } from "vite";
+
 import { createTitaniumEnvironment } from "@titanium-sdk/vite-titanium-environment";
+
+const DEFAULT_FULL_RELOAD_DEBOUNCE_MS = 100;
+
+interface TitaniumReloadEnvironment {
+  hot: Pick<DevEnvironment["hot"], "send">;
+}
+
+interface TitaniumFullReloadScheduler {
+  schedule: (
+    environment: TitaniumReloadEnvironment,
+    triggeredBy: string,
+  ) => void;
+  cancel: () => void;
+}
+
+export function createTitaniumFullReloadScheduler(
+  debounceMs = DEFAULT_FULL_RELOAD_DEBOUNCE_MS,
+): TitaniumFullReloadScheduler {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let pendingEnvironment: TitaniumReloadEnvironment | undefined;
+  let pendingTriggeredBy: string | undefined;
+
+  return {
+    schedule(environment, triggeredBy) {
+      pendingEnvironment = environment;
+      pendingTriggeredBy = triggeredBy;
+      if (timer) {
+        clearTimeout(timer);
+      }
+      timer = setTimeout(() => {
+        if (pendingEnvironment && pendingTriggeredBy) {
+          pendingEnvironment.hot.send({
+            type: "full-reload",
+            path: "*",
+            triggeredBy: pendingTriggeredBy,
+          });
+        }
+        timer = undefined;
+        pendingEnvironment = undefined;
+        pendingTriggeredBy = undefined;
+      }, debounceMs);
+    },
+    cancel() {
+      if (timer) {
+        clearTimeout(timer);
+      }
+      timer = undefined;
+      pendingEnvironment = undefined;
+      pendingTriggeredBy = undefined;
+    },
+  };
+}
 
 /**
  * Core plugin for Titanium specific configuration.
@@ -11,6 +64,8 @@ import { createTitaniumEnvironment } from "@titanium-sdk/vite-titanium-environme
  * - Adds a middleware to handle the invoke request
  */
 export function corePlugin(): Plugin {
+  const fullReloadScheduler = createTitaniumFullReloadScheduler();
+
   return {
     name: "titanium:core",
     config() {
@@ -70,7 +125,9 @@ export function corePlugin(): Plugin {
         const payload = parseHotPayload(JSON.parse(rawBody));
         if (!payload) {
           res.writeHead(400, { "Content-Type": "application/json" });
-          res.end(JSON.stringify({ error: { message: "Invalid invoke payload" } }));
+          res.end(
+            JSON.stringify({ error: { message: "Invalid invoke payload" } }),
+          );
           return;
         }
         const result =
@@ -82,6 +139,29 @@ export function corePlugin(): Plugin {
 
       // eslint-disable-next-line @typescript-eslint/no-misused-promises
       server.middlewares.use(titaniumInvokeMiddleware);
+    },
+    hotUpdate({ file, modules, timestamp }) {
+      if (this.environment.name !== "titanium") {
+        return;
+      }
+      if (modules.length === 0) {
+        return;
+      }
+
+      const invalidatedModules = new Set<(typeof modules)[number]>();
+      for (const mod of modules) {
+        this.environment.moduleGraph.invalidateModule(
+          mod,
+          invalidatedModules,
+          timestamp,
+          true,
+        );
+      }
+      fullReloadScheduler.schedule(this.environment, file);
+      return [];
+    },
+    closeBundle() {
+      fullReloadScheduler.cancel();
     },
   };
 }

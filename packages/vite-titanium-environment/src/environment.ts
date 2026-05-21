@@ -1,8 +1,9 @@
-import type { EnvironmentOptions, ResolvedConfig } from "vite";
+import type { EnvironmentOptions, ResolvedConfig, WebSocketServer } from "vite";
 import { mergeConfig } from "vite";
 
 import { createTitaniumBuildEnvironment } from "./build.js";
 import { createTitaniumDevEnvironment } from "./dev.js";
+import { createTitaniumHotTransport } from "./hot.js";
 
 export function createTitaniumEnvironment(
   userConfig: EnvironmentOptions = {},
@@ -10,8 +11,15 @@ export function createTitaniumEnvironment(
   return mergeConfig(
     {
       dev: {
-        createEnvironment(name: string, config: ResolvedConfig) {
-          return createTitaniumDevEnvironment(name, config, { hot: false });
+        createEnvironment(
+          name: string,
+          config: ResolvedConfig,
+          context: { ws: WebSocketServer },
+        ) {
+          return createTitaniumDevEnvironment(name, config, {
+            hot: true,
+            transport: createTitaniumHotTransport(context.ws),
+          });
         },
       },
       build: {

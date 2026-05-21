@@ -1,10 +1,11 @@
 import { createRequire } from "node:module";
 import path from "node:path";
-import type { Platform } from "@titanium-sdk/vite-utils";
 import type { AlloyCompiler, AlloyConfig } from "alloy-compiler";
 import type { Plugin, ViteDevServer } from "vite";
 import { createCompiler } from "alloy-compiler";
 import { normalizePath } from "vite";
+
+import type { Platform } from "@titanium-sdk/vite-utils";
 
 const require = createRequire(import.meta.url);
 
@@ -66,8 +67,9 @@ export class AlloyContext {
         this._compiler = this.createCompiler();
         // Cached transform results may have stale Alloy state so they need to
         // be invalidated before sending reload message
-        this.server.moduleGraph.invalidateAll();
-        this.server.ws.send({
+        const titaniumEnvironment = this.server.environments.titanium;
+        titaniumEnvironment?.moduleGraph.invalidateAll();
+        titaniumEnvironment?.hot.send({
           type: "full-reload",
           path: "*",
         });
@@ -76,7 +78,10 @@ export class AlloyContext {
   }
 
   get server(): ViteDevServer {
-    return this._server!;
+    if (!this._server) {
+      throw new Error("Alloy Vite dev server has not been initialized.");
+    }
+    return this._server;
   }
 
   private createCompiler() {
