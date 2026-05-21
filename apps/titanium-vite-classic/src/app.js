@@ -1,5 +1,4 @@
 import os from "os";
-
 import isOdd from "is-odd";
 
 console.log("[ti-debug] main.js entered");
