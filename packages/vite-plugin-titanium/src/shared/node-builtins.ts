@@ -14,12 +14,32 @@ const builtins = [
   "stream",
 ];
 
+interface ResolvedBuiltinModule {
+  external: true;
+  id: string;
+  moduleSideEffects: false;
+}
+
 /**
  * Check if a string matches the name of a Node.js builtin module shim provided
  * by Titanium.
  */
 export function isBuiltinModule(id: string): boolean {
   return builtins.includes(id);
+}
+
+export function resolveNodeBuiltin(
+  id: string,
+  importer: string | undefined,
+  isProduction: boolean,
+): ResolvedBuiltinModule | null {
+  if (!isBuiltinModule(id)) return null;
+
+  if (isProduction || isTitaniumRuntimeDependency(importer)) {
+    return { id, external: true, moduleSideEffects: false };
+  }
+
+  return { id: `/titanium:builtin:${id}`, external: true, moduleSideEffects: false };
 }
 
 /**
@@ -48,12 +68,12 @@ export function nodeBuiltinsPlugin(): Plugin {
       isProduction = config.isProduction;
     },
 
-    resolveId(id) {
-      if (!isBuiltinModule(id)) return;
-      if (isProduction) {
-        return { id, external: true, moduleSideEffects: false };
-      }
-      return { id: `/titanium:builtin:${id}`, external: true, moduleSideEffects: false };
+    resolveId(id, importer) {
+      return resolveNodeBuiltin(id, importer, isProduction);
     },
   };
+}
+
+function isTitaniumRuntimeDependency(importer: string | undefined): boolean {
+  return typeof importer === "string" && importer.includes("/node_modules/tiws/");
 }
