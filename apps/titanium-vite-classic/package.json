@@ -13,7 +13,7 @@
     "is-odd": "^1.0.0"
   },
   "devDependencies": {
-    "vite": "catalog:",
-    "@titanium-sdk/vite-plugin-titanium": "workspace:*"
+    "@titanium-sdk/vite-plugin-titanium": "workspace:*",
+    "vite": "catalog:"
   }
 }

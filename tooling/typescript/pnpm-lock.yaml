@@ -1,0 +1,13 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+overrides:
+  alloy-compiler: link:../../../alloy-devkit/packages/alloy-compiler
+  alloy-utils: link:../../../alloy-devkit/packages/alloy-utils
+
+importers:
+
+  .: {}

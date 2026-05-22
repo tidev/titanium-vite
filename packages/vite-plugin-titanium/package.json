@@ -37,6 +37,9 @@
     "tiws": "^1.0.1",
     "vite-plugin-static-copy": "^3.3.0"
   },
+  "peerDependencies": {
+    "vite": "^8.0.11"
+  },
   "devDependencies": {
     "@titanium-sdk/eslint-config": "workspace:*",
     "@titanium-sdk/prettier-config": "workspace:*",
@@ -47,9 +50,7 @@
     "dotenv-cli": "^7.4.2",
     "eslint": "catalog:",
     "prettier": "catalog:",
-    "typescript": "catalog:",
-    "vite": "catalog:",
-    "vitest": "catalog:"
+    "typescript": "catalog:"
   },
   "eslintConfig": {
     "root": true,

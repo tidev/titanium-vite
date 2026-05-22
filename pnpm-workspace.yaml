@@ -17,8 +17,12 @@ catalog:
   zod: ^3.23.8
 
 overrides:
-  alloy-compiler: link:../alloy-devkit/packages/alloy-compiler
-  alloy-utils: link:../alloy-devkit/packages/alloy-utils
+  alloy-compiler: link:../../../alloy-devkit/packages/alloy-compiler
+  alloy-utils: link:../../../alloy-devkit/packages/alloy-utils
+
+nodeLinker: hoisted
 
 publicHoistPattern:
   - "@ianvs/prettier-plugin-sort-imports"
+
+sharedWorkspaceLockfile: false

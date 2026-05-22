@@ -25,13 +25,13 @@
     "whatwg-url": "^14.2.0"
   },
   "devDependencies": {
-    "@titanium-sdk/eslint-config": "workspace:*",
-    "@titanium-sdk/prettier-config": "workspace:*",
-    "@titanium-sdk/tsconfig": "workspace:*",
     "@rollup/plugin-commonjs": "^28.0.3",
     "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-node-resolve": "^16.0.1",
     "@rollup/plugin-typescript": "^12.1.2",
+    "@titanium-sdk/eslint-config": "workspace:*",
+    "@titanium-sdk/prettier-config": "workspace:*",
+    "@titanium-sdk/tsconfig": "workspace:*",
     "@types/whatwg-url": "^13.0.0",
     "dotenv-cli": "^7.4.2",
     "eslint": "catalog:",

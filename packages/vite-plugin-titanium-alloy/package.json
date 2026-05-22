@@ -33,6 +33,9 @@
     "fs-extra": "^11.3.0",
     "rolldown": "^1.0.0-rc.18"
   },
+  "peerDependencies": {
+    "vite": "^8.0.11"
+  },
   "devDependencies": {
     "@titanium-sdk/eslint-config": "workspace:*",
     "@titanium-sdk/prettier-config": "workspace:*",
@@ -41,9 +44,7 @@
     "@types/node": "catalog:",
     "eslint": "catalog:",
     "prettier": "catalog:",
-    "typescript": "catalog:",
-    "vite": "catalog:",
-    "vitest": "catalog:"
+    "typescript": "catalog:"
   },
   "eslintConfig": {
     "root": true,
