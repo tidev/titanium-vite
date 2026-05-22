@@ -21,10 +21,6 @@ const debug = createDebugger("titanium:vite:bridge");
  * other platforms. Shared code may import those behind runtime guards, and
  * those imports still need to stay external during bundling so Titanium's
  * runtime loader can handle them on the platform where they actually exist.
- *
- * Must run before `titanium:force-bundle`, which would otherwise call
- * `require.resolve()` on the bare ID and return `null` (silently) — leaving
- * Rolldown to error out at the default resolver.
  */
 export function nativeModulesPlugin(): Plugin {
   let context: TiBridgeApi["context"] | undefined;
