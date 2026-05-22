@@ -2,6 +2,7 @@ import { expect, test } from "vitest";
 
 import {
   createTitaniumDevEnvironmentOptions,
+  normalizeNodeModuleFileRequest,
   resolveEnvironmentBuiltinId,
 } from "./dev.js";
 
@@ -33,4 +34,22 @@ test("resolves Vite-wrapped builtin ids for module runner fetches", () => {
 
 test("ignores Vite-wrapped ids that are not environment builtins", () => {
   expect(resolveEnvironmentBuiltinId("/@id/is-odd", ["os"])).toBeNull();
+});
+
+test("normalizes Vite root-relative node_modules URLs to app filesystem paths", () => {
+  expect(
+    normalizeNodeModuleFileRequest(
+      "/node_modules/is-odd/index.js?v=123",
+      "/Users/example/app",
+    ),
+  ).toBe("/Users/example/app/node_modules/is-odd/index.js");
+});
+
+test("preserves Vite fs-prefixed node_modules filesystem paths", () => {
+  expect(
+    normalizeNodeModuleFileRequest(
+      "/@fs/Users/example/app/node_modules/is-odd/index.js?v=123",
+      "/Users/example/app",
+    ),
+  ).toBe("/Users/example/app/node_modules/is-odd/index.js");
 });

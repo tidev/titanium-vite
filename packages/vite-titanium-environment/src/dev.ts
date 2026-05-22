@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { FetchFunctionOptions, FetchResult } from "vite/module-runner";
 import type {
   DevEnvironmentContext,
@@ -9,6 +10,7 @@ import { DevEnvironment } from "vite";
 import { nodeCompatBuiltins } from "./constants.js";
 
 const FS_PREFIX = "/@fs";
+const ROOT_NODE_MODULES_PREFIX = "/node_modules/";
 const VALID_ID_PREFIX = "/@id/";
 const NULL_BYTE_PLACEHOLDER = "__x00__";
 
@@ -84,7 +86,7 @@ class TitaniumDevEnvironment extends DevEnvironment {
       return super.fetchModule(id, importer, options);
     }
 
-    const nodeModuleRequest = parseNodeModuleRequest(id);
+    const nodeModuleRequest = parseNodeModuleRequest(id, this.config.root);
     if (nodeModuleRequest) {
       const optimizedId = await this.resolveOptimizedDependency(
         nodeModuleRequest.importId,
@@ -167,8 +169,8 @@ function isNodeModuleJavaScript(id: string): boolean {
   );
 }
 
-function parseNodeModuleRequest(id: string): NodeModuleRequest | null {
-  const filePath = normalizeFileRequest(id);
+function parseNodeModuleRequest(id: string, root: string): NodeModuleRequest | null {
+  const filePath = normalizeNodeModuleFileRequest(id, root);
   if (!filePath || !isNodeModuleJavaScript(filePath)) {
     return null;
   }
@@ -181,10 +183,17 @@ function parseNodeModuleRequest(id: string): NodeModuleRequest | null {
   return { importId, filePath };
 }
 
-function normalizeFileRequest(id: string): string | null {
+export function normalizeNodeModuleFileRequest(
+  id: string,
+  root: string,
+): string | null {
   const cleanId = cleanUrl(id);
   if (cleanId.startsWith(FS_PREFIX)) {
     return cleanId.slice(FS_PREFIX.length);
+  }
+
+  if (cleanId.startsWith(ROOT_NODE_MODULES_PREFIX)) {
+    return path.join(root, cleanId);
   }
 
   if (cleanId.startsWith("/")) {
