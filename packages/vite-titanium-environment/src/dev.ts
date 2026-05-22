@@ -21,6 +21,7 @@ export function createTitaniumDevEnvironment(
   config: ResolvedConfig,
   context: DevEnvironmentContext,
 ) {
+  const environmentOptions = config.environments[name] ?? context.options;
   /*
   const connection = {
     on(event: string, listener: () => void) {
@@ -43,7 +44,7 @@ export function createTitaniumDevEnvironment(
 
   const titaniumDevEnvironment = new TitaniumDevEnvironment(name, config, {
     ...context,
-    options: createTitaniumDevEnvironmentOptions(context.options),
+    options: createTitaniumDevEnvironmentOptions(environmentOptions),
   });
   return titaniumDevEnvironment;
 }
@@ -119,6 +120,7 @@ class TitaniumDevEnvironment extends DevEnvironment {
     const cleanId = cleanUrl(resolvedId);
     if (
       !depsOptimizer ||
+      isDependencyOptimizationExcluded(id, depsOptimizer.options.exclude) ||
       depsOptimizer.isOptimizedDepFile(cleanId) ||
       !isNodeModuleJavaScript(cleanId)
     ) {
@@ -130,6 +132,13 @@ class TitaniumDevEnvironment extends DevEnvironment {
     await optimizedInfo.processing;
     return depsOptimizer.getOptimizedDepId(optimizedInfo);
   }
+}
+
+export function isDependencyOptimizationExcluded(
+  id: string,
+  exclude: readonly string[] | undefined,
+): boolean {
+  return exclude?.includes(id) ?? false;
 }
 
 interface NodeModuleRequest {

@@ -2,6 +2,7 @@ import { expect, test } from "vitest";
 
 import {
   createTitaniumDevEnvironmentOptions,
+  isDependencyOptimizationExcluded,
   normalizeNodeModuleFileRequest,
   resolveEnvironmentBuiltinId,
 } from "./dev.js";
@@ -52,4 +53,17 @@ test("preserves Vite fs-prefixed node_modules filesystem paths", () => {
       "/Users/example/app",
     ),
   ).toBe("/Users/example/app/node_modules/is-odd/index.js");
+});
+
+test("respects explicit dependency optimization exclusions", () => {
+  expect(
+    isDependencyOptimizationExcluded("alloy/Alloy/template/lib/alloy.js", [
+      "alloy/Alloy/template/lib/alloy.js",
+    ]),
+  ).toBe(true);
+  expect(
+    isDependencyOptimizationExcluded("is-odd", [
+      "alloy/Alloy/template/lib/alloy.js",
+    ]),
+  ).toBe(false);
 });

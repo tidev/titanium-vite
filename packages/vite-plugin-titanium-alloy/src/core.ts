@@ -2,17 +2,215 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import type { Platform } from "@titanium-sdk/vite-utils";
 import type { Plugin } from "vite";
+import type { RolldownPlugin } from "rolldown";
 import { cleanUrl } from "@titanium-sdk/vite-utils";
 
+import { createAlloyConfigCode } from "./config.js";
 import type { AlloyContext } from "./context.js";
 
 const require = createRequire(import.meta.url);
 
 const DEFAULT_BACKBONE_VERSION = "0.9.2";
+const ALLOY_OPTIMIZE_DEPS_INCLUDE = ["alloy/Alloy/template/lib/alloy.js"];
+const ALLOY_OPTIMIZE_DEPS_EXCLUDE = ["alloy.bootstrap"];
+const ALLOY_CONFIG = "/alloy/CFG";
+const ALLOY_OPTIMIZER_CONFIG = "\0titanium:alloy:optimizer-config";
 
 const appControllerRequestPattern = "'/alloy/controllers/' \\+ ";
 const widgetControllerRequestPattern =
   "'/alloy/widgets/'.*?'/controllers/' \\+ ";
+
+interface AlloyServerFsAllowOptions {
+  existing: string[];
+  appDir: string;
+  alloyRoot: string;
+  alloyUtilsRoot: string;
+}
+
+interface AlloyAliasOptions {
+  appDir: string;
+  alloyMain: string;
+  alloyRoot: string;
+  alloyUtilsRoot: string;
+  backboneVersion: string;
+}
+
+interface AlloyResolveAlias {
+  find: RegExp;
+  replacement: string;
+}
+
+interface AlloyOptimizerAlias {
+  find: string;
+  replacement: string;
+}
+
+interface AlloyAliasEntry {
+  resolve: AlloyResolveAlias;
+  optimizeDeps?: AlloyOptimizerAlias;
+}
+
+interface AlloyAliases {
+  resolve: AlloyResolveAlias[];
+  optimizeDeps: Record<string, string>;
+}
+
+interface ViteResolveAlias {
+  find: string | RegExp;
+  replacement: string;
+}
+
+function isViteResolveAlias(value: unknown): value is ViteResolveAlias {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  if (!("find" in value) || !("replacement" in value)) {
+    return false;
+  }
+  const { find, replacement } = value;
+  return (
+    (typeof find === "string" || find instanceof RegExp) &&
+    typeof replacement === "string"
+  );
+}
+
+export function createAlloyResolveAliases(
+  existing: unknown,
+  aliases: AlloyResolveAlias[],
+): ViteResolveAlias[] {
+  if (!Array.isArray(existing)) {
+    return aliases;
+  }
+  return [...existing.filter(isViteResolveAlias), ...aliases];
+}
+
+export function createAlloyServerFsAllow({
+  existing,
+  appDir,
+  alloyRoot,
+  alloyUtilsRoot,
+}: AlloyServerFsAllowOptions): string[] {
+  return [...existing, appDir, alloyRoot, alloyUtilsRoot];
+}
+
+export function createAlloyOptimizeDepsExclude(existing: string[]): string[] {
+  return [...existing, ...ALLOY_OPTIMIZE_DEPS_EXCLUDE];
+}
+
+export function createAlloyOptimizeDepsInclude(existing: string[]): string[] {
+  return [...existing, ...ALLOY_OPTIMIZE_DEPS_INCLUDE];
+}
+
+export function createAlloyAliases({
+  appDir,
+  alloyMain,
+  alloyRoot,
+  alloyUtilsRoot,
+  backboneVersion,
+}: AlloyAliasOptions): AlloyAliases {
+  const backbone = path.join(
+    alloyRoot,
+    "lib/alloy/backbone",
+    backboneVersion,
+    "backbone.js",
+  );
+  const constants = path.join(alloyUtilsRoot, "constants.js");
+  const underscore = path.resolve(alloyRoot, "lib/alloy/underscore.js");
+  const entries: AlloyAliasEntry[] = [
+    {
+      resolve: {
+        find: /^\/?alloy$/,
+        replacement: alloyMain,
+      },
+    },
+    {
+      resolve: {
+        find: /^\/?alloy\/backbone$/,
+        replacement: backbone,
+      },
+      optimizeDeps: {
+        find: "/alloy/backbone",
+        replacement: backbone,
+      },
+    },
+    {
+      resolve: {
+        find: /^\/?alloy\/constants$/,
+        replacement: constants,
+      },
+      optimizeDeps: {
+        find: "/alloy/constants",
+        replacement: constants,
+      },
+    },
+    {
+      resolve: {
+        find: /^\/?alloy\/models/,
+        replacement: path.join(appDir, "models"),
+      },
+    },
+    {
+      resolve: {
+        find: /^\/?alloy\/styles/,
+        replacement: path.join(appDir, "styles"),
+      },
+    },
+    {
+      resolve: {
+        find: /^\/?alloy\/widgets/,
+        replacement: path.join(appDir, "widgets"),
+      },
+    },
+    {
+      resolve: {
+        find: /^\/?alloy\/(animation|dialogs|measurement|moment|sha1|social|string)/,
+        replacement: path.resolve(alloyRoot, "builtins/$1"),
+      },
+    },
+    {
+      resolve: {
+        find: /^\/?alloy\/(sync|underscore|widget|controllers\/BaseController)/,
+        replacement: path.resolve(alloyRoot, "lib/alloy/$1"),
+      },
+      optimizeDeps: {
+        find: "/alloy/underscore",
+        replacement: underscore,
+      },
+    },
+    {
+      resolve: {
+        find: /^alloy.bootstrap$/,
+        replacement: path.join(alloyRoot, "template/alloy.bootstrap.js"),
+      },
+    },
+  ];
+  const optimizeDeps: Record<string, string> = {};
+  for (const entry of entries) {
+    if (entry.optimizeDeps) {
+      optimizeDeps[entry.optimizeDeps.find] = entry.optimizeDeps.replacement;
+    }
+  }
+  return {
+    resolve: entries.map((entry) => entry.resolve),
+    optimizeDeps,
+  };
+}
+
+function alloyOptimizerConfigPlugin(ctx: AlloyContext): RolldownPlugin {
+  return {
+    name: "titanium:alloy:optimizer-config",
+    resolveId(id) {
+      if (id === ALLOY_CONFIG) {
+        return ALLOY_OPTIMIZER_CONFIG;
+      }
+    },
+    load(id) {
+      if (id === ALLOY_OPTIMIZER_CONFIG) {
+        return createAlloyConfigCode(ctx);
+      }
+    },
+  };
+}
 
 export function corePlugin(ctx: AlloyContext, platform: Platform): Plugin {
   const { root: alloyRoot } = ctx;
@@ -29,53 +227,20 @@ export function corePlugin(ctx: AlloyContext, platform: Platform): Plugin {
       const backboneVersion = compileConfig.backbone
         ? compileConfig.backbone
         : DEFAULT_BACKBONE_VERSION;
+      const alloyAliases = createAlloyAliases({
+        appDir,
+        alloyMain: ALLOY_MAIN,
+        alloyRoot,
+        alloyUtilsRoot: ALLOY_UTILS_ROOT,
+        backboneVersion,
+      });
       if (!config.resolve) {
         config.resolve = {};
       }
-      config.resolve.alias = [
-        ...(Array.isArray(config.resolve.alias) ? config.resolve.alias : []),
-        {
-          find: /^\/?alloy$/,
-          replacement: ALLOY_MAIN,
-        },
-        {
-          find: /^\/?alloy\/backbone$/,
-          replacement: path.join(
-            alloyRoot,
-            "lib/alloy/backbone",
-            backboneVersion,
-            "backbone.js",
-          ),
-        },
-        {
-          find: /^\/?alloy\/constants$/,
-          replacement: path.join(ALLOY_UTILS_ROOT, "constants.js"),
-        },
-        {
-          find: /^\/?alloy\/models/,
-          replacement: path.join(appDir, "models"),
-        },
-        {
-          find: /^\/?alloy\/styles/,
-          replacement: path.join(appDir, "styles"),
-        },
-        {
-          find: /^\/?alloy\/widgets/,
-          replacement: path.join(appDir, "widgets"),
-        },
-        {
-          find: /^\/?alloy\/(animation|dialogs|measurement|moment|sha1|social|string)/,
-          replacement: path.resolve(alloyRoot, "builtins/$1"),
-        },
-        {
-          find: /^\/?alloy\/(sync|underscore|widget|controllers\/BaseController)/,
-          replacement: path.resolve(alloyRoot, "lib/alloy/$1"),
-        },
-        {
-          find: /^alloy.bootstrap$/,
-          replacement: path.join(alloyRoot, "template/alloy.bootstrap.js"),
-        },
-      ];
+      config.resolve.alias = createAlloyResolveAliases(
+        config.resolve.alias,
+        alloyAliases.resolve,
+      );
 
       config.define = {
         ...config.define,
@@ -106,20 +271,68 @@ export function corePlugin(ctx: AlloyContext, platform: Platform): Plugin {
         `lib/*.{js,ts}`,
         `lib/${platform}/**/*.{js,ts}`,
       ];
-      config.optimizeDeps.exclude = [
-        ...(config.optimizeDeps.exclude ?? []),
-        "alloy.bootstrap",
-      ];
+      config.optimizeDeps.include = createAlloyOptimizeDepsInclude(
+        config.optimizeDeps.include ?? [],
+      );
+      config.optimizeDeps.exclude = createAlloyOptimizeDepsExclude(
+        config.optimizeDeps.exclude ?? [],
+      );
+      config.optimizeDeps.rolldownOptions = {
+        ...config.optimizeDeps.rolldownOptions,
+        resolve: {
+          ...config.optimizeDeps.rolldownOptions?.resolve,
+          alias: {
+            ...config.optimizeDeps.rolldownOptions?.resolve?.alias,
+            ...alloyAliases.optimizeDeps,
+          },
+        },
+        plugins: [
+          config.optimizeDeps.rolldownOptions?.plugins,
+          alloyOptimizerConfigPlugin(ctx),
+        ],
+      };
+      const titaniumOptimizeDeps =
+        config.environments?.titanium?.optimizeDeps;
+      config.environments = {
+        ...config.environments,
+        titanium: {
+          ...config.environments?.titanium,
+          optimizeDeps: {
+            ...titaniumOptimizeDeps,
+            include: createAlloyOptimizeDepsInclude(
+              titaniumOptimizeDeps?.include ?? [],
+            ),
+            exclude: createAlloyOptimizeDepsExclude(
+              titaniumOptimizeDeps?.exclude ?? [],
+            ),
+            rolldownOptions: {
+              ...titaniumOptimizeDeps?.rolldownOptions,
+              resolve: {
+                ...titaniumOptimizeDeps?.rolldownOptions?.resolve,
+                alias: {
+                  ...titaniumOptimizeDeps?.rolldownOptions?.resolve?.alias,
+                  ...alloyAliases.optimizeDeps,
+                },
+              },
+              plugins: [
+                titaniumOptimizeDeps?.rolldownOptions?.plugins,
+                alloyOptimizerConfigPlugin(ctx),
+              ],
+            },
+          },
+        },
+      };
 
       config.server = {
         ...config.server,
         fs: {
           ...config.server?.fs,
-          allow: [
-            ...(config.server?.fs?.allow ?? []),
+          allow: createAlloyServerFsAllow({
+            existing: config.server?.fs?.allow ?? [],
+            appDir,
             alloyRoot,
-            ALLOY_UTILS_ROOT,
-          ],
+            alloyUtilsRoot: ALLOY_UTILS_ROOT,
+          }),
         },
       };
     },
