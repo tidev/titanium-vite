@@ -87,6 +87,11 @@ export function corePlugin(): Plugin {
           },
         },
         environments: {
+          client: {
+            optimizeDeps: {
+              disabled: "dev",
+            },
+          },
           titanium: createTitaniumEnvironment(),
         },
         server: {
