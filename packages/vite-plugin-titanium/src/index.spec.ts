@@ -2,7 +2,7 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { createServer } from "vite";
-import type { PluginOption } from "vite";
+import type { Plugin, PluginOption } from "vite";
 import { expect, test, vi } from "vitest";
 
 import { titanium } from "./index.js";
@@ -55,6 +55,120 @@ test("allows Alloy app modules to import Titanium-supported builtins in dev", as
 		}
 
 		expect(result.code).toContain("formatLabelText");
+	} finally {
+		await server.close();
+		process.chdir(previousCwd);
+	}
+});
+
+test("externalizes declared Titanium native modules in dev module runner fetches", async () => {
+	const appRoot = path.join(repoRoot, "apps/titanium-vite-alloy");
+	const previousCwd = process.cwd();
+	process.chdir(appRoot);
+
+	const bridgePlugin = {
+		name: "ti-vite-bridge",
+		api: {
+			context: {
+				command: "serve",
+				deployType: "development",
+				devServer: { origin: "http://127.0.0.1:5173" },
+				nativeModules: [
+					{ id: "ti.animation", platform: "ios", version: "6.1.1" },
+				],
+				platform: "ios",
+				target: "simulator",
+			},
+			reportTiApiUsage: vi.fn(),
+		},
+	};
+	const server = await createServer({
+		configFile: false,
+		logLevel: "silent",
+		plugins: [bridgePlugin, titanium({ projectType: "alloy" })],
+		root: appRoot,
+		server: { middlewareMode: true },
+	});
+
+	try {
+		const environment = server.environments.titanium;
+		if (!environment) {
+			throw new Error("Titanium environment missing");
+		}
+
+		const result = await environment.fetchModule(
+			"ti.animation",
+			path.join(appRoot, "app/lib/app-utils.js"),
+		);
+
+		expect(result).toEqual({
+			externalize: "ti.animation",
+			type: "builtin",
+		});
+	} finally {
+		await server.close();
+		process.chdir(previousCwd);
+	}
+});
+
+test("keeps non-native external dependencies on Vite's fetch path", async () => {
+	const appRoot = path.join(repoRoot, "apps/titanium-vite-classic");
+	const previousCwd = process.cwd();
+	process.chdir(appRoot);
+
+	const bridgePlugin = {
+		name: "ti-vite-bridge",
+		api: {
+			context: {
+				command: "serve",
+				deployType: "development",
+				devServer: { origin: "http://127.0.0.1:5173" },
+				nativeModules: [],
+				platform: "ios",
+				target: "simulator",
+			},
+			reportTiApiUsage: vi.fn(),
+		},
+	};
+	const externalDependencyPlugin: Plugin = {
+		name: "test:external-dependency",
+		enforce: "pre",
+		resolveId(id) {
+			if (id === "is-odd") {
+				return { id, external: true };
+			}
+		},
+	};
+	const server = await createServer({
+		configFile: false,
+		logLevel: "silent",
+		plugins: [
+			bridgePlugin,
+			externalDependencyPlugin,
+			titanium({ projectType: "classic" }),
+		],
+		root: appRoot,
+		server: { middlewareMode: true },
+	});
+
+	try {
+		const environment = server.environments.titanium;
+		if (!environment) {
+			throw new Error("Titanium environment missing");
+		}
+
+		const result = await environment.fetchModule(
+			"is-odd",
+			path.join(appRoot, "src/app.js"),
+		);
+
+		if (!("externalize" in result)) {
+			throw new Error("Expected Vite to externalize dependency resolution");
+		}
+
+		expect(result.externalize).not.toBe("is-odd");
+		expect(result.externalize).toMatch(/^file:/);
+		expect(result.type).toBe("commonjs");
 	} finally {
 		await server.close();
 		process.chdir(previousCwd);

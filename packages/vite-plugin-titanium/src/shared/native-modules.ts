@@ -1,7 +1,10 @@
 import createDebugger from "debug";
 import type { TiBridgeApi } from "@titanium-sdk/vite-utils";
 import type { Plugin } from "vite";
-import { TI_BRIDGE_PLUGIN_NAME } from "@titanium-sdk/vite-utils";
+import {
+  TI_BRIDGE_PLUGIN_NAME,
+  TITANIUM_NATIVE_MODULE_RESOLVE_META_KEY,
+} from "@titanium-sdk/vite-utils";
 
 const debug = createDebugger("titanium:vite:bridge");
 
@@ -61,7 +64,14 @@ export function nativeModulesPlugin(): Plugin {
     resolveId(id) {
       if (!nativeModules.has(id)) return;
       debug("resolve %s -> external", id);
-      return { id, external: true, moduleSideEffects: false };
+      return {
+        id,
+        external: true,
+        moduleSideEffects: false,
+        meta: {
+          [TITANIUM_NATIVE_MODULE_RESOLVE_META_KEY]: true,
+        },
+      };
     },
   };
 }

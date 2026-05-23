@@ -13,8 +13,13 @@ const FS_PREFIX = "/@fs";
 const ROOT_NODE_MODULES_PREFIX = "/node_modules/";
 const VALID_ID_PREFIX = "/@id/";
 const NULL_BYTE_PLACEHOLDER = "__x00__";
+const TITANIUM_NATIVE_MODULE_RESOLVE_META_KEY = "titanium:native-module";
 
 type EnvironmentBuiltin = string | RegExp;
+
+interface TitaniumNativeModuleResolveMeta {
+  [TITANIUM_NATIVE_MODULE_RESOLVE_META_KEY]?: unknown;
+}
 
 export function createTitaniumDevEnvironment(
   name: string,
@@ -106,6 +111,12 @@ class TitaniumDevEnvironment extends DevEnvironment {
     if (!resolved) {
       return super.fetchModule(id, importer, options);
     }
+    if (isTitaniumNativeModuleResolution(resolved)) {
+      return {
+        externalize: resolved.id,
+        type: "builtin",
+      };
+    }
 
     const optimizedId = await this.resolveOptimizedDependency(id, resolved.id);
     if (optimizedId) {
@@ -132,6 +143,30 @@ class TitaniumDevEnvironment extends DevEnvironment {
     await optimizedInfo.processing;
     return depsOptimizer.getOptimizedDepId(optimizedInfo);
   }
+}
+
+interface PluginResolvedId {
+  external?: boolean | "absolute" | "relative";
+  id: string;
+  meta?: object | null;
+}
+
+function isTitaniumNativeModuleResolution(resolved: PluginResolvedId): boolean {
+  return (
+    resolved.external === true &&
+    isTitaniumNativeModuleResolveMeta(resolved.meta)
+  );
+}
+
+function isTitaniumNativeModuleResolveMeta(
+  meta: object | null | undefined,
+): meta is TitaniumNativeModuleResolveMeta {
+  return (
+    typeof meta === "object" &&
+    meta !== null &&
+    TITANIUM_NATIVE_MODULE_RESOLVE_META_KEY in meta &&
+    meta[TITANIUM_NATIVE_MODULE_RESOLVE_META_KEY] === true
+  );
 }
 
 export function isDependencyOptimizationExcluded(

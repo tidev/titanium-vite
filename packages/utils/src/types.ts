@@ -31,3 +31,10 @@ export interface TiBridgeApi {
 }
 
 export const TI_BRIDGE_PLUGIN_NAME = "ti-vite-bridge";
+
+export const TITANIUM_NATIVE_MODULE_RESOLVE_META_KEY =
+  "titanium:native-module";
+
+export interface TitaniumNativeModuleResolveMeta {
+  [TITANIUM_NATIVE_MODULE_RESOLVE_META_KEY]?: unknown;
+}
