@@ -48,6 +48,9 @@ Vite-based dev environment + plugin set for the Titanium SDK. Experimental, acti
 | Lambus Titanium App | `../lambus-titanium` |
 
 ## CONVENTIONS
+- This repo is pre-release. Prefer the cleaner long-term architecture over
+  compatibility-preserving patches, even when that introduces breaking changes.
+  Leave the repository in a better structural state than before the work.
 - **pnpm catalog** manages shared versions (`vite`, `vitest`, `typescript`, `eslint`, `prettier`, `zod`, `@types/node`). Reference as `"vite": "catalog:"` in package.json — never pin directly.
 - **TS**: `strict`, `noUncheckedIndexedAccess`, `noImplicitOverride`, `verbatimModuleSyntax`, `isolatedModules`, target `es2022`. tsbuildinfo cached at `.cache/tsbuildinfo.json`.
 - **ESLint** flat config (`@titanium-sdk/eslint-config/base`) extends `recommendedTypeChecked` + `stylisticTypeChecked` — type-aware rules require `parserOptions.projectService: true`.
