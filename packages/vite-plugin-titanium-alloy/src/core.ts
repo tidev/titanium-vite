@@ -1,7 +1,7 @@
 import { createRequire } from "node:module";
 import path from "node:path";
 import type { Platform } from "@titanium-sdk/vite-utils";
-import type { Plugin } from "vite";
+import type { DepOptimizationConfig, Plugin } from "vite";
 import type { RolldownPlugin } from "rolldown";
 import { cleanUrl } from "@titanium-sdk/vite-utils";
 
@@ -55,6 +55,17 @@ interface AlloyAliases {
   optimizeDeps: Record<string, string>;
 }
 
+type OptimizeDepsRolldownOptions = NonNullable<
+  DepOptimizationConfig["rolldownOptions"]
+>;
+
+interface AlloyOptimizeDepsRolldownOptions {
+  existing?: OptimizeDepsRolldownOptions;
+  aliases: Record<string, string>;
+  plugin: RolldownPlugin;
+  platform?: OptimizeDepsRolldownOptions["platform"];
+}
+
 interface ViteResolveAlias {
   find: string | RegExp;
   replacement: string;
@@ -99,6 +110,26 @@ export function createAlloyOptimizeDepsExclude(existing: string[]): string[] {
 
 export function createAlloyOptimizeDepsInclude(existing: string[]): string[] {
   return [...existing, ...ALLOY_OPTIMIZE_DEPS_INCLUDE];
+}
+
+export function createAlloyOptimizeDepsRolldownOptions({
+  existing,
+  aliases,
+  plugin,
+  platform,
+}: AlloyOptimizeDepsRolldownOptions): OptimizeDepsRolldownOptions {
+  return {
+    ...existing,
+    ...(platform ? { platform } : {}),
+    resolve: {
+      ...existing?.resolve,
+      alias: {
+        ...existing?.resolve?.alias,
+        ...aliases,
+      },
+    },
+    plugins: [existing?.plugins, plugin],
+  };
 }
 
 export function createAlloyAliases({
@@ -277,20 +308,12 @@ export function corePlugin(ctx: AlloyContext, platform: Platform): Plugin {
       config.optimizeDeps.exclude = createAlloyOptimizeDepsExclude(
         config.optimizeDeps.exclude ?? [],
       );
-      config.optimizeDeps.rolldownOptions = {
-        ...config.optimizeDeps.rolldownOptions,
-        resolve: {
-          ...config.optimizeDeps.rolldownOptions?.resolve,
-          alias: {
-            ...config.optimizeDeps.rolldownOptions?.resolve?.alias,
-            ...alloyAliases.optimizeDeps,
-          },
-        },
-        plugins: [
-          config.optimizeDeps.rolldownOptions?.plugins,
-          alloyOptimizerConfigPlugin(ctx),
-        ],
-      };
+      config.optimizeDeps.rolldownOptions =
+        createAlloyOptimizeDepsRolldownOptions({
+          aliases: alloyAliases.optimizeDeps,
+          existing: config.optimizeDeps.rolldownOptions,
+          plugin: alloyOptimizerConfigPlugin(ctx),
+        });
       const titaniumOptimizeDeps =
         config.environments?.titanium?.optimizeDeps;
       config.environments = {
@@ -305,20 +328,16 @@ export function corePlugin(ctx: AlloyContext, platform: Platform): Plugin {
             exclude: createAlloyOptimizeDepsExclude(
               titaniumOptimizeDeps?.exclude ?? [],
             ),
-            rolldownOptions: {
-              ...titaniumOptimizeDeps?.rolldownOptions,
-              resolve: {
-                ...titaniumOptimizeDeps?.rolldownOptions?.resolve,
-                alias: {
-                  ...titaniumOptimizeDeps?.rolldownOptions?.resolve?.alias,
-                  ...alloyAliases.optimizeDeps,
-                },
-              },
-              plugins: [
-                titaniumOptimizeDeps?.rolldownOptions?.plugins,
-                alloyOptimizerConfigPlugin(ctx),
-              ],
-            },
+            rolldownOptions: createAlloyOptimizeDepsRolldownOptions({
+              aliases: alloyAliases.optimizeDeps,
+              existing: titaniumOptimizeDeps?.rolldownOptions,
+              plugin: alloyOptimizerConfigPlugin(ctx),
+              // Titanium has a global CommonJS `require`, but it is not Node
+              // and cannot resolve `node:` specifiers. Keep optimizer helpers
+              // target-neutral so CJS deps use the runtime `require` instead
+              // of importing `node:module` for `createRequire`.
+              platform: "neutral",
+            }),
           },
         },
       };

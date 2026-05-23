@@ -54,7 +54,7 @@ export function createTitaniumDevEnvironmentOptions(
 ): EnvironmentOptions {
   return {
     ...options,
-    consumer: "client",
+    consumer: "server",
     optimizeDeps: {
       ...options.optimizeDeps,
       noDiscovery: false,

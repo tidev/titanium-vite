@@ -4,6 +4,7 @@ import {
   createAlloyAliases,
   createAlloyOptimizeDepsInclude,
   createAlloyOptimizeDepsExclude,
+  createAlloyOptimizeDepsRolldownOptions,
   createAlloyResolveAliases,
   createAlloyServerFsAllow,
 } from "./core.js";
@@ -70,4 +71,24 @@ test("pre-optimizes Alloy runtime entry for dev boot", () => {
     "existing",
     "alloy/Alloy/template/lib/alloy.js",
   ]);
+});
+
+test("uses target-neutral optimization for Titanium CJS runtime dependencies", () => {
+  const options = createAlloyOptimizeDepsRolldownOptions({
+    aliases: { "/alloy/underscore": "/project/alloy/underscore.js" },
+    existing: {
+      platform: "node",
+      resolve: {
+        alias: { existing: "/project/existing.js" },
+      },
+    },
+    plugin: { name: "alloy-test" },
+    platform: "neutral",
+  });
+
+  expect(options.platform).toBe("neutral");
+  expect(options.resolve?.alias).toEqual({
+    existing: "/project/existing.js",
+    "/alloy/underscore": "/project/alloy/underscore.js",
+  });
 });

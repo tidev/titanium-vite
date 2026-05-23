@@ -60,6 +60,13 @@ Base notes for a general Alloy ESM migration guide. Keep concise.
 
 - Alloy model/controller files are dynamically loaded by Alloy/Titanium, so Vite/Rolldown entry exports must be preserved.
 - `preserveEntrySignatures: "exports-only"` is used in the Titanium build environment for that contract.
+- Titanium's Vite environment uses server-consumer dependency semantics with
+  explicit Titanium-supported builtins so dev import analysis treats imports such
+  as `path` as runtime builtins, not app files.
+- Alloy dependency optimization for the Titanium environment keeps Rolldown's
+  platform target neutral. Titanium provides a global CommonJS `require`, but it
+  is not Node and does not support `node:` specifiers or `node:module`
+  `createRequire` helpers.
 - Production may still emit CommonJS wrappers for Titanium, but app source should stay ESM.
 
 ## Alloy Require Specifier Normalization

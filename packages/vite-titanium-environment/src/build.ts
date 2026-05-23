@@ -9,11 +9,11 @@ export function createTitaniumBuildEnvironment(
 ) {
   return new BuildEnvironment(name, config, {
     options: {
-      // Use the client consumer so Vite's native resolver bundles npm dependencies
-      // by default (browser-style). With "server" + platform="neutral" the native
-      // vite-resolve plugin still externalizes anything resolved from node_modules,
-      // even when `resolve.noExternal: true` is set.
-      consumer: "client",
+      // Titanium is a custom runtime, not a browser target. Use Vite's server
+      // consumer path so builtins/externalization use runtime-oriented semantics,
+      // then force npm dependencies through the bundle because Titanium has no
+      // npm module loader at runtime.
+      consumer: "server",
       build: {
         target: "ios13",
         modulePreload: {
@@ -43,7 +43,7 @@ export function createTitaniumBuildEnvironment(
             format: "cjs",
             entryFileNames: (chunk) => {
               if (chunk.name === "module-runner") {
-                return 'app.js'
+                return "app.js";
               }
               if (chunk.name === "polyfills") {
                 return "polyfills.bootstrap.js";
@@ -55,10 +55,7 @@ export function createTitaniumBuildEnvironment(
       },
       resolve: {
         // Titanium has no module loader at runtime — every npm dep must be bundled.
-        // Rolldown's native `vite-resolve` plugin honors `noExternal` only when it's
-        // a regex/array (not `true`), so use a catch-all regex to force bundling of
-        // every bare specifier that gets resolved to node_modules.
-        noExternal: [/.*/],
+        noExternal: true,
         builtins: [...nodeCompatBuiltins],
         external: [...nodeCompatBuiltins],
       },

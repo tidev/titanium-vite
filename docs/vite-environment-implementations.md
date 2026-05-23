@@ -10,7 +10,10 @@ Titanium currently has a narrow environment factory in `packages/vite-titanium-e
 
 - `createTitaniumEnvironment()` returns merged `EnvironmentOptions`.
 - Dev uses `TitaniumDevEnvironment extends DevEnvironment` and overrides `fetchModule()` for Titanium builtins and optimized dependencies.
-- Build uses `BuildEnvironment` with `consumer: "client"`, `target: "ios13"`, `platform: "neutral"`, CJS output, `noExternal: [/.*/]`, and explicit Titanium/Node-compat builtins.
+- Build uses `BuildEnvironment` with `consumer: "server"`, `target: "ios13"`, `platform: "neutral"`, CJS output, `noExternal: true`, and explicit Titanium/Node-compat builtins.
+- Dev dependency optimization keeps Titanium-targeted Rolldown output neutral
+  when prebundling Alloy CJS dependencies, so optimized helpers use Titanium's
+  global `require` instead of importing `node:module`.
 - Runtime execution is bridged by `titanium:module-runner`, which emits a Titanium-side `ModuleRunner` bootstrap and proxies `/invoke` back to Vite.
 
 That makes the closest analogues "custom runtime provider" projects, not framework-only plugin examples.

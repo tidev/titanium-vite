@@ -28,9 +28,13 @@ let isRestarting = false;
 
 class TitaniumModulesEvaluator extends ESModulesEvaluator {
   runExternalModule(filepath) {
-    const mod = require(filepath);
+    const mod = require(normalizeExternalModuleId(filepath));
     return (mod && mod.__esModule) ? mod : { "default": mod };
   }
+}
+
+function normalizeExternalModuleId(id) {
+  return id.startsWith("node:") ? id.slice(5) : id;
 }
 
 function createHmrUrl(origin, hmrPath, token) {

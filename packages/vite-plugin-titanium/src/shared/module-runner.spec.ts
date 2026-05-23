@@ -24,3 +24,14 @@ test("generated dev runner connects to Vite HMR and restarts Titanium on hot pay
   );
   expect(code).toContain("Ti.App._restart()");
 });
+
+test("generated dev runner strips node protocol before Titanium require", () => {
+  const code = createDevModuleRunnerCode({
+    devServerHmrPath: "/",
+    devServerOrigin: "http://127.0.0.1:8323",
+    webSocketToken: "token",
+  });
+
+  expect(code).toContain("const mod = require(normalizeExternalModuleId(filepath));");
+  expect(code).toContain("return id.startsWith(\"node:\") ? id.slice(5) : id;");
+});

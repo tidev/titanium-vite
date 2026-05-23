@@ -19,6 +19,12 @@ test("preserves Titanium builtins when Vite provides context options", () => {
   );
 });
 
+test("uses server-consumer dependency semantics for Titanium runtime modules", () => {
+  const options = createTitaniumDevEnvironmentOptions();
+
+  expect(options.consumer).toBe("server");
+});
+
 test("keeps dependency discovery enabled for module runner imports", () => {
   const options = createTitaniumDevEnvironmentOptions({
     optimizeDeps: {
