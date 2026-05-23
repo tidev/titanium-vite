@@ -1,10 +1,12 @@
 import os from "os";
 import isOdd from "is-odd";
+import animation from "ti.animation";
 
 console.log("[ti-debug] main.js entered");
 console.log("[ti-debug] os.platform() =", os.platform());
 console.log("[ti-debug] isOdd(1) =", isOdd(1));
 console.log("[ti-debug] isOdd(2) =", isOdd(2));
+console.log("[ti-debug] ti.animation =", typeof animation);
 
 /**
  * Create a new tab group.

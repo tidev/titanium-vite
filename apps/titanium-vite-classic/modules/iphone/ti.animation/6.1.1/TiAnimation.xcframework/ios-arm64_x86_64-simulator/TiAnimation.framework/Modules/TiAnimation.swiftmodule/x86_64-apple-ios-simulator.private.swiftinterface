@@ -1,0 +1,18 @@
+// swift-interface-format-version: 1.0
+// swift-compiler-version: Apple Swift version 6.0.3 effective-5.10 (swiftlang-6.0.3.1.10 clang-1600.0.30.1)
+// swift-module-flags: -target x86_64-apple-ios12.0-simulator -enable-objc-interop -enable-library-evolution -swift-version 5 -enforce-exclusivity=checked -O -enable-bare-slash-regex -module-name TiAnimation
+// swift-module-flags-ignorable: -no-verify-emitted-module-interface
+import Lottie
+import Swift
+@_exported import TiAnimation
+import TitaniumKit
+import UIKit
+import _Concurrency
+import _StringProcessing
+import _SwiftConcurrencyShims
+@_inheritsConvenienceInitializers @objc(TiAnimationAnimationView) @_Concurrency.MainActor @preconcurrency public class TiAnimationAnimationView : TitaniumKit.TiUIView {
+  @_Concurrency.MainActor @preconcurrency @objc override dynamic public func frameSizeChanged(_ frame: CoreFoundation.CGRect, bounds: CoreFoundation.CGRect)
+  @_Concurrency.MainActor @preconcurrency @objc override dynamic public init(frame: CoreFoundation.CGRect)
+  @_Concurrency.MainActor @preconcurrency @objc required dynamic public init?(coder: Foundation.NSCoder)
+  @objc deinit
+}

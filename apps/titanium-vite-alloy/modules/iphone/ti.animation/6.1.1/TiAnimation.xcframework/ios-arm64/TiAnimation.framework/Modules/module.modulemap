@@ -1,0 +1,11 @@
+framework module TiAnimation {
+  umbrella header "TiAnimation.h"
+  export *
+
+  module * { export * }
+}
+
+module TiAnimation.Swift {
+  header "TiAnimation-Swift.h"
+  requires objc
+}
