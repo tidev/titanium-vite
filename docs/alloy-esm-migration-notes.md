@@ -62,6 +62,47 @@ Base notes for a general Alloy ESM migration guide. Keep concise.
 - `preserveEntrySignatures: "exports-only"` is used in the Titanium build environment for that contract.
 - Production may still emit CommonJS wrappers for Titanium, but app source should stay ESM.
 
+## Alloy Require Specifier Normalization
+
+Verified against `../titanium_mobile/common/Resources/ti.internal/kernel/module.js`.
+
+Titanium's CommonJS resolver is not symmetric for leading-slash and bare
+requests:
+
+- Relative requests (`./x`, `../x`) resolve against the parent module.
+- Leading-slash requests (`/x`) are treated as app-root absolute resource paths
+  and only call `loadAsFileOrDirectory('/x')`.
+- Bare requests (`x` or `x/y`) try core/native modules, CommonJS package
+  lookup, node_modules lookup, then fall back to the legacy app-root absolute
+  path `/${request}`.
+
+So `require("alloy/underscore")` may fall back to `/alloy/underscore`, but
+`require("/alloy/underscore")` does not retry as `alloy/underscore`. This is
+compatible with old Titanium app resources, but it conflicts with Vite's
+specifier model where `/alloy/underscore` is root-absolute and
+`alloy/underscore` is a bare package-like request.
+
+Normalize Alloy runtime and generated Alloy specifiers for Vite as follows:
+
+1. Treat `alloy` and `alloy/*` as the canonical Vite-facing Alloy namespace.
+2. Rewrite static Alloy specifiers from `/alloy` and `/alloy/*` to `alloy` and
+   `alloy/*` before Vite resolve, transform, or dependency optimization sees
+   them.
+3. Rewrite known Alloy dynamic require prefixes the same way:
+   `/alloy/controllers/`, `/alloy/widgets/`, `/alloy/models/`,
+   `/alloy/styles/`, and `/alloy/sync/`.
+4. Keep true app-root imports such as `/app` as root-absolute Vite ids. The
+   rewrite is only for the Alloy namespace.
+5. Keep Vite aliases accepting both leading-slash and bare Alloy forms during
+   migration, but emit/request the bare form internally.
+6. Production CommonJS can also use bare Alloy requests because Titanium's
+   legacy bare fallback still resolves them to `/alloy/*` when no core or
+   node_modules module exists.
+
+This prevents symlinked local Alloy installs from bypassing Vite dependency
+optimization as real paths outside `node_modules`, and makes the resolver
+contract match normal Vite semantics.
+
 ## Known Follow-Up
 
 - Expand these notes into a full migration guide before publishing the codemod broadly.
