@@ -1,5 +1,6 @@
 ".container": {
-	backgroundColor:"white"
+	backgroundColor:"white",
+	layout: "vertical"
 }
 
 "Label": {
@@ -9,7 +10,15 @@
 }
 
 "#label": {
+	top: 80,
 	font: {
 		fontSize: 12
+	}
+}
+
+"#modelLabel": {
+	top: 16,
+	font: {
+		fontSize: 14
 	}
 }

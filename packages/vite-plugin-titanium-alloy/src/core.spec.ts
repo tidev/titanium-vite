@@ -23,6 +23,7 @@ test("creates Vite and optimizer aliases from one Alloy alias source", () => {
     replacement: "/project/node_modules/alloy/Alloy/lib/alloy/$1",
   });
   expect(aliases.optimizeDeps).toEqual({
+    "/alloy": "/project/node_modules/alloy/Alloy/template/lib/alloy.js",
     "/alloy/backbone":
       "/project/node_modules/alloy/Alloy/lib/alloy/backbone/1.0.0/backbone.js",
     "/alloy/constants": "/workspace/alloy-utils/lib/constants.js",
@@ -69,7 +70,31 @@ test("excludes Alloy runtime entry from dependency optimization", () => {
 test("pre-optimizes Alloy runtime entry for dev boot", () => {
   expect(createAlloyOptimizeDepsInclude(["existing"])).toEqual([
     "existing",
+    "alloy/Alloy/lib/alloy/controllers/BaseController.js",
+    "alloy/Alloy/lib/alloy/underscore.js",
+    "alloy/Alloy/lib/alloy/widget.js",
     "alloy/Alloy/template/lib/alloy.js",
+    "alloy/Alloy/lib/alloy/backbone/0.9.2/backbone.js",
+    "alloy/Alloy/lib/alloy/sync/localStorage.js",
+    "alloy/Alloy/lib/alloy/sync/properties.js",
+    "alloy/Alloy/lib/alloy/sync/sql.js",
+  ]);
+});
+
+test("pre-optimizes configured Alloy runtime dependencies for dev boot", () => {
+  expect(
+    createAlloyOptimizeDepsInclude(["existing"], {
+      backboneVersion: "1.4.0",
+      syncAdapters: ["properties"],
+    }),
+  ).toEqual([
+    "existing",
+    "alloy/Alloy/lib/alloy/controllers/BaseController.js",
+    "alloy/Alloy/lib/alloy/underscore.js",
+    "alloy/Alloy/lib/alloy/widget.js",
+    "alloy/Alloy/template/lib/alloy.js",
+    "alloy/Alloy/lib/alloy/backbone/1.4.0/backbone.js",
+    "alloy/Alloy/lib/alloy/sync/properties.js",
   ]);
 });
 

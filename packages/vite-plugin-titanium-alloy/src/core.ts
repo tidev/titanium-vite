@@ -11,10 +11,16 @@ import type { AlloyContext } from "./context.js";
 const require = createRequire(import.meta.url);
 
 const DEFAULT_BACKBONE_VERSION = "0.9.2";
-const ALLOY_OPTIMIZE_DEPS_INCLUDE = ["alloy/Alloy/template/lib/alloy.js"];
+const ALLOY_OPTIMIZE_DEPS_INCLUDE = [
+  "alloy/Alloy/lib/alloy/controllers/BaseController.js",
+  "alloy/Alloy/lib/alloy/underscore.js",
+  "alloy/Alloy/lib/alloy/widget.js",
+  "alloy/Alloy/template/lib/alloy.js",
+];
 const ALLOY_OPTIMIZE_DEPS_EXCLUDE = ["alloy.bootstrap"];
 const ALLOY_CONFIG = "/alloy/CFG";
 const ALLOY_OPTIMIZER_CONFIG = "\0titanium:alloy:optimizer-config";
+const DEFAULT_SYNC_ADAPTERS = ["localStorage", "properties", "sql"];
 
 const appControllerRequestPattern = "'/alloy/controllers/' \\+ ";
 const widgetControllerRequestPattern =
@@ -43,6 +49,11 @@ interface AlloyResolveAlias {
 interface AlloyOptimizerAlias {
   find: string;
   replacement: string;
+}
+
+interface AlloyOptimizeDepsIncludeOptions {
+  backboneVersion: string;
+  syncAdapters: readonly string[];
 }
 
 interface AlloyAliasEntry {
@@ -108,8 +119,22 @@ export function createAlloyOptimizeDepsExclude(existing: string[]): string[] {
   return [...existing, ...ALLOY_OPTIMIZE_DEPS_EXCLUDE];
 }
 
-export function createAlloyOptimizeDepsInclude(existing: string[]): string[] {
-  return [...existing, ...ALLOY_OPTIMIZE_DEPS_INCLUDE];
+export function createAlloyOptimizeDepsInclude(
+  existing: string[],
+  options: AlloyOptimizeDepsIncludeOptions = {
+    backboneVersion: DEFAULT_BACKBONE_VERSION,
+    syncAdapters: DEFAULT_SYNC_ADAPTERS,
+  },
+): string[] {
+  const entries = [
+    ...existing,
+    ...ALLOY_OPTIMIZE_DEPS_INCLUDE,
+    `alloy/Alloy/lib/alloy/backbone/${options.backboneVersion}/backbone.js`,
+    ...options.syncAdapters.map(
+      (adapter) => `alloy/Alloy/lib/alloy/sync/${adapter}.js`,
+    ),
+  ];
+  return [...new Set(entries)];
 }
 
 export function createAlloyOptimizeDepsRolldownOptions({
@@ -151,6 +176,10 @@ export function createAlloyAliases({
     {
       resolve: {
         find: /^\/?alloy$/,
+        replacement: alloyMain,
+      },
+      optimizeDeps: {
+        find: "/alloy",
         replacement: alloyMain,
       },
     },
@@ -243,6 +272,14 @@ function alloyOptimizerConfigPlugin(ctx: AlloyContext): RolldownPlugin {
   };
 }
 
+function getConfiguredSyncAdapters(
+  adapters: string | string[] | undefined,
+): readonly string[] {
+  if (!adapters) return DEFAULT_SYNC_ADAPTERS;
+  if (Array.isArray(adapters)) return adapters;
+  return [adapters];
+}
+
 export function corePlugin(ctx: AlloyContext, platform: Platform): Plugin {
   const { root: alloyRoot } = ctx;
   const ALLOY_MAIN = path.join(alloyRoot, "template/lib/alloy.js");
@@ -304,6 +341,10 @@ export function corePlugin(ctx: AlloyContext, platform: Platform): Plugin {
       ];
       config.optimizeDeps.include = createAlloyOptimizeDepsInclude(
         config.optimizeDeps.include ?? [],
+        {
+          backboneVersion,
+          syncAdapters: getConfiguredSyncAdapters(compileConfig.adapters),
+        },
       );
       config.optimizeDeps.exclude = createAlloyOptimizeDepsExclude(
         config.optimizeDeps.exclude ?? [],
@@ -324,6 +365,10 @@ export function corePlugin(ctx: AlloyContext, platform: Platform): Plugin {
             ...titaniumOptimizeDeps,
             include: createAlloyOptimizeDepsInclude(
               titaniumOptimizeDeps?.include ?? [],
+              {
+                backboneVersion,
+                syncAdapters: getConfiguredSyncAdapters(compileConfig.adapters),
+              },
             ),
             exclude: createAlloyOptimizeDepsExclude(
               titaniumOptimizeDeps?.exclude ?? [],

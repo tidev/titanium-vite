@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { Platform } from "@titanium-sdk/vite-utils";
-import type { Plugin } from "vite";
+import type { Plugin, UserConfig } from "vite";
+import { TI_BRIDGE_PLUGIN_NAME } from "@titanium-sdk/vite-utils";
 
 import { assetsPlugin } from "./assets.js";
 import { componentPlugin } from "./component.js";
@@ -47,6 +48,13 @@ export function resolveAlloyPlugins(
  * and Titanium's CJS loader resolves the dynamic require against it.
  */
 const VIRTUAL_PREFIX = "\0virtual:titanium/alloy-entry:";
+const ALLOY_DEV_RUNTIME_PRELOADS = [
+  "/alloy",
+  "/alloy/CFG",
+  "/alloy/backbone",
+  "/alloy/controllers/BaseController",
+  "/alloy/underscore",
+];
 
 function runtimeEntriesPlugin(ctx: AlloyContext, platform: Platform): Plugin {
   // Map virtual entry id → absolute source file path. Populated by
@@ -56,9 +64,16 @@ function runtimeEntriesPlugin(ctx: AlloyContext, platform: Platform): Plugin {
   return {
     name: "titanium:alloy:runtime-entries",
     apply: "build",
+    api: {
+      titaniumDevModulePreloads: createDevModulePreloads(entries),
+    },
     enforce: "pre",
 
-    config() {
+    config(config) {
+      if (readBridgeCommand(config.plugins) === "serve") {
+        return;
+      }
+
       const input: Record<string, string> = {};
       for (const [chunkName, virtualId] of Object.entries(entries.byChunk)) {
         input[chunkName] = virtualId;
@@ -79,6 +94,22 @@ function runtimeEntriesPlugin(ctx: AlloyContext, platform: Platform): Plugin {
       if (filePath) return filePath;
     },
   };
+}
+
+function createDevModulePreloads(entries: CollectedEntries): string[] {
+  const chunkNames = Object.keys(entries.byChunk);
+  const syncChunks = chunkNames.filter(isAlloySyncChunk);
+  const appChunks = chunkNames.filter((chunkName) => !isAlloySyncChunk(chunkName));
+
+  return [
+    ...ALLOY_DEV_RUNTIME_PRELOADS,
+    ...syncChunks.map((chunkName) => `/${chunkName}`),
+    ...appChunks.map((chunkName) => `/${chunkName}`),
+  ];
+}
+
+function isAlloySyncChunk(chunkName: string): boolean {
+  return chunkName.startsWith("alloy/sync/");
 }
 
 interface CollectedEntries {
@@ -257,6 +288,36 @@ function collectWidgetModels(
   };
 
   walk(modelsDir);
+}
+
+function readBridgeCommand(plugins: UserConfig["plugins"]): "build" | "serve" | undefined {
+  if (!Array.isArray(plugins)) return undefined;
+
+  for (const plugin of plugins) {
+    const command = readBridgeCommandFromPlugin(plugin);
+    if (command) return command;
+  }
+}
+
+function readBridgeCommandFromPlugin(value: unknown): "build" | "serve" | undefined {
+  if (Array.isArray(value)) {
+    return readBridgeCommand(value);
+  }
+  if (!isRecord(value)) return undefined;
+  if (value.name !== TI_BRIDGE_PLUGIN_NAME) return undefined;
+
+  const { api } = value;
+  if (!isRecord(api)) return undefined;
+  const { context } = api;
+  if (!isRecord(context)) return undefined;
+
+  return context.command === "build" || context.command === "serve"
+    ? context.command
+    : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function getConfiguredSyncAdapters(adapters: string | string[] | undefined) {

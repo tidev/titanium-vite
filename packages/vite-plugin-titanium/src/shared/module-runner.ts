@@ -10,12 +10,14 @@ const VIRTUAL_ENTRY_ID = "virtual:titanium/module-runner";
 interface DevModuleRunnerCodeOptions {
   devServerOrigin: string;
   devServerHmrPath: string;
+  devModulePreloads: string[];
   webSocketToken: string;
 }
 
 export function createDevModuleRunnerCode({
   devServerOrigin,
   devServerHmrPath,
+  devModulePreloads,
   webSocketToken,
 }: DevModuleRunnerCodeOptions): string {
   return `import { ESModulesEvaluator, ModuleRunner } from "vite/module-runner";
@@ -23,12 +25,15 @@ import WebSocket from "tiws";
 
 const devServerOrigin = ${JSON.stringify(devServerOrigin)};
 const devServerHmrPath = ${JSON.stringify(devServerHmrPath)};
+const devModulePreloads = ${JSON.stringify(devModulePreloads)};
 const webSocketToken = ${JSON.stringify(webSocketToken)};
 let isRestarting = false;
+const nativeRequire = require;
+const preloadedModuleExports = Object.create(null);
 
 class TitaniumModulesEvaluator extends ESModulesEvaluator {
   runExternalModule(filepath) {
-    const mod = require(normalizeExternalModuleId(filepath));
+    const mod = nativeRequire(normalizeExternalModuleId(filepath));
     return (mod && mod.__esModule) ? mod : { "default": mod };
   }
 }
@@ -125,6 +130,89 @@ function resolveBuiltinFetch(payload) {
   };
 }
 
+function createModuleCandidates(id) {
+  const candidates = [id];
+  if (id.startsWith("/")) {
+    candidates.push(id.slice(1));
+  } else {
+    candidates.push("/" + id);
+  }
+
+  const withExtensions = [];
+  for (const candidate of candidates) {
+    withExtensions.push(candidate);
+    if (!candidate.endsWith(".js")) {
+      withExtensions.push(candidate + ".js");
+    }
+  }
+  return withExtensions;
+}
+
+function getCachedModuleExports(moduleRunner, id) {
+  for (const candidate of createModuleCandidates(id)) {
+    if (candidate in preloadedModuleExports) {
+      return preloadedModuleExports[candidate];
+    }
+    const module =
+      moduleRunner.evaluatedModules.getModuleByUrl(candidate) ||
+      moduleRunner.evaluatedModules.getModuleById(candidate);
+    if (module && module.evaluated && module.exports) {
+      return module.exports;
+    }
+  }
+}
+
+function rememberPreloadedModule(id, exports) {
+  for (const candidate of createModuleCandidates(id)) {
+    preloadedModuleExports[candidate] = exports;
+  }
+}
+
+function isAlloyFactoryModule(id) {
+  const normalizedId = id.startsWith("/") ? id.slice(1) : id;
+  return (
+    normalizedId.startsWith("alloy/controllers/") ||
+    normalizedId.startsWith("alloy/models/") ||
+    (normalizedId.startsWith("alloy/widgets/") &&
+      normalizedId.includes("/controllers/"))
+  );
+}
+
+function toCommonJsRequireResult(id, mod) {
+  if (
+    isAlloyFactoryModule(id) &&
+    mod &&
+    typeof mod === "object" &&
+    "default" in mod
+  ) {
+    return mod.default;
+  }
+  if (mod && typeof mod === "object" && "default" in mod) {
+    mod.__esModule = true;
+  }
+  return mod;
+}
+
+function createViteAwareRequire(moduleRunner, fallbackRequire) {
+  return function viteAwareRequire(id) {
+    const cachedModule = getCachedModuleExports(moduleRunner, id);
+    if (cachedModule) {
+      return toCommonJsRequireResult(id, cachedModule);
+    }
+    return fallbackRequire(id);
+  };
+}
+
+async function preloadDevModules(moduleRunner) {
+  for (const moduleId of devModulePreloads) {
+    try {
+      rememberPreloadedModule(moduleId, await moduleRunner.import(moduleId));
+    } catch (e) {
+      console.log("[titanium] module runner preload failed", moduleId, e);
+    }
+  }
+}
+
 const moduleRunner = new ModuleRunner(
   {
     transport: {
@@ -137,8 +225,11 @@ const moduleRunner = new ModuleRunner(
   new TitaniumModulesEvaluator(),
 );
 
+global.require = createViteAwareRequire(moduleRunner, nativeRequire);
+
 (async () => {
   try {
+    await preloadDevModules(moduleRunner);
     await moduleRunner.import('virtual:titanium/main');
   } catch (e) {
     console.log('[titanium] module runner import failed', e);
@@ -151,6 +242,7 @@ export function moduleRunnerPlugin(): Plugin {
   let isProduction = false;
   let devServerOrigin: string | undefined;
   let devServerHmrPath = "/";
+  let devModulePreloads: string[] = [];
   let webSocketToken = "";
 
   return {
@@ -174,6 +266,7 @@ export function moduleRunnerPlugin(): Plugin {
 
       isProduction = config.isProduction && bridge.context.command !== "serve";
       devServerOrigin = bridge.context.devServer?.origin;
+      devModulePreloads = readDevModulePreloads(config.plugins);
     },
 
     resolveId(source) {
@@ -222,6 +315,7 @@ export function moduleRunnerPlugin(): Plugin {
         code: createDevModuleRunnerCode({
           devServerOrigin,
           devServerHmrPath,
+          devModulePreloads,
           webSocketToken,
         }),
       };
@@ -279,4 +373,28 @@ function parseBridgeApi(value: unknown): ModuleRunnerBridgeApi | null {
   }
 
   return { context: { command, devServer } };
+}
+
+function readDevModulePreloads(plugins: readonly Plugin[]): string[] {
+  const preloads = new Set<string>();
+
+  for (const plugin of plugins) {
+    const api: unknown = plugin.api;
+    if (!isRecord(api)) continue;
+
+    const value = api.titaniumDevModulePreloads;
+    if (!Array.isArray(value)) continue;
+
+    for (const preload of value) {
+      if (typeof preload === "string") {
+        preloads.add(preload);
+      }
+    }
+  }
+
+  return [...preloads];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

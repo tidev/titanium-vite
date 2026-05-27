@@ -6,6 +6,7 @@ test("generated dev runner connects to Vite HMR and restarts Titanium on hot pay
   const code = createDevModuleRunnerCode({
     devServerHmrPath: "/",
     devServerOrigin: "http://127.0.0.1:8323",
+    devModulePreloads: [],
     webSocketToken: "token",
   });
 
@@ -29,9 +30,36 @@ test("generated dev runner strips node protocol before Titanium require", () => 
   const code = createDevModuleRunnerCode({
     devServerHmrPath: "/",
     devServerOrigin: "http://127.0.0.1:8323",
+    devModulePreloads: [],
     webSocketToken: "token",
   });
 
-  expect(code).toContain("const mod = require(normalizeExternalModuleId(filepath));");
+  expect(code).toContain(
+    "const mod = nativeRequire(normalizeExternalModuleId(filepath));",
+  );
   expect(code).toContain("return id.startsWith(\"node:\") ? id.slice(5) : id;");
+});
+
+test("generated dev runner resolves preloaded modules for Titanium require", () => {
+  const code = createDevModuleRunnerCode({
+    devServerHmrPath: "/",
+    devServerOrigin: "http://127.0.0.1:8323",
+    devModulePreloads: ["/alloy/controllers/index"],
+    webSocketToken: "token",
+  });
+
+  expect(code).toContain(
+    'const devModulePreloads = ["/alloy/controllers/index"];',
+  );
+  expect(code).toContain(
+    "global.require = createViteAwareRequire(moduleRunner, nativeRequire);",
+  );
+  expect(code).toContain("await preloadDevModules(moduleRunner);");
+  expect(code).toContain("moduleRunner.evaluatedModules.getModuleByUrl(candidate)");
+  expect(code).toContain("const preloadedModuleExports = Object.create(null);");
+  expect(code).toContain(
+    "rememberPreloadedModule(moduleId, await moduleRunner.import(moduleId));",
+  );
+  expect(code).toContain("function isAlloyFactoryModule(id)");
+  expect(code).toContain("return mod.default;");
 });

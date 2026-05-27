@@ -1,8 +1,10 @@
 import type { IncomingMessage, NextFunction } from "connect";
 import type { ServerResponse } from "node:http";
-import type { DevEnvironment, HotPayload, Plugin } from "vite";
+import type { DevEnvironment, HotPayload, Plugin, ResolvedConfig } from "vite";
 
 import { createTitaniumEnvironment } from "@titanium-sdk/vite-titanium-environment";
+import type { TitaniumBuildMode } from "@titanium-sdk/vite-titanium-environment";
+import { TI_BRIDGE_PLUGIN_NAME } from "@titanium-sdk/vite-utils";
 
 const DEFAULT_FULL_RELOAD_DEBOUNCE_MS = 100;
 
@@ -65,6 +67,7 @@ export function createTitaniumFullReloadScheduler(
  */
 export function corePlugin(): Plugin {
   const fullReloadScheduler = createTitaniumFullReloadScheduler();
+  let buildMode: TitaniumBuildMode = "app";
 
   return {
     name: "titanium:core",
@@ -87,13 +90,28 @@ export function corePlugin(): Plugin {
           },
         },
         environments: {
-          titanium: createTitaniumEnvironment(),
+          titanium: createTitaniumEnvironment({}, () => buildMode),
         },
         server: {
           watch: {
             ignored: ["build/**"],
           },
         },
+      };
+    },
+    configResolved(config) {
+      if (readBridgeCommand(config) !== "serve") {
+        return;
+      }
+
+      buildMode = "serve-bootstrap";
+      const titaniumEnvironment = config.environments.titanium;
+      if (!titaniumEnvironment) {
+        return;
+      }
+
+      titaniumEnvironment.build.rollupOptions.input = {
+        "module-runner": "virtual:titanium/module-runner",
       };
     },
     configureServer(server) {
@@ -183,4 +201,29 @@ function parseHotPayload(value: unknown): HotPayload | null {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readBridgeCommand(
+  config: ResolvedConfig,
+): "build" | "serve" | undefined {
+  for (const plugin of config.plugins) {
+    const command = readBridgeCommandFromPlugin(plugin);
+    if (command) return command;
+  }
+}
+
+function readBridgeCommandFromPlugin(
+  value: unknown,
+): "build" | "serve" | undefined {
+  if (!isRecord(value)) return undefined;
+  if (value.name !== TI_BRIDGE_PLUGIN_NAME) return undefined;
+
+  const { api } = value;
+  if (!isRecord(api)) return undefined;
+  const { context } = api;
+  if (!isRecord(context)) return undefined;
+
+  return context.command === "build" || context.command === "serve"
+    ? context.command
+    : undefined;
 }

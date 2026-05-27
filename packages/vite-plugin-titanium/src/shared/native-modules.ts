@@ -42,6 +42,11 @@ export function nativeModulesPlugin(): Plugin {
       const bridge = bridgePlugin.api as TiBridgeApi;
       context = bridge.context;
       nativeModules = getNativeModuleIds(context.nativeModules);
+      addNativeModulesToBuiltins(
+        config.resolve.builtins,
+        config.environments.titanium?.resolve.builtins,
+        nativeModules,
+      );
     },
 
     // `buildStart` is per-environment. `corePlugin.builder.buildApp` only builds
@@ -86,4 +91,22 @@ function getNativeModuleIds(
   }
 
   return nativeModules;
+}
+
+function addNativeModulesToBuiltins(
+  configBuiltins: (string | RegExp)[],
+  titaniumBuiltins: (string | RegExp)[] | undefined,
+  nativeModules: Set<string>,
+): void {
+  for (const id of nativeModules) {
+    addBuiltin(configBuiltins, id);
+    if (titaniumBuiltins) {
+      addBuiltin(titaniumBuiltins, id);
+    }
+  }
+}
+
+function addBuiltin(builtins: (string | RegExp)[], id: string): void {
+  if (builtins.includes(id)) return;
+  builtins.push(id);
 }

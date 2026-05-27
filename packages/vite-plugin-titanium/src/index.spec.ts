@@ -1,7 +1,7 @@
 import path from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { createServer } from "vite";
+import { createBuilder, createServer } from "vite";
 import type { Plugin, PluginOption } from "vite";
 import { expect, test, vi } from "vitest";
 
@@ -55,6 +55,50 @@ test("allows Alloy app modules to import Titanium-supported builtins in dev", as
 		}
 
 		expect(result.code).toContain("formatLabelText");
+	} finally {
+		await server.close();
+		process.chdir(previousCwd);
+	}
+});
+
+test("does not duplicate plugins in the Titanium dev environment", async () => {
+	const appRoot = path.join(repoRoot, "apps/titanium-vite-alloy");
+	const previousCwd = process.cwd();
+	process.chdir(appRoot);
+
+	const bridgePlugin = {
+		name: "ti-vite-bridge",
+		api: {
+			context: {
+				command: "serve",
+				deployType: "development",
+				devServer: { origin: "http://127.0.0.1:5173" },
+				nativeModules: [],
+				platform: "ios",
+				target: "simulator",
+			},
+			reportTiApiUsage: vi.fn(),
+		},
+	};
+	const server = await createServer({
+		configFile: false,
+		logLevel: "silent",
+		plugins: [bridgePlugin, titanium({ projectType: "alloy" })],
+		root: appRoot,
+		server: { middlewareMode: true },
+	});
+
+	try {
+		const environment = server.environments.titanium;
+		if (!environment) {
+			throw new Error("Titanium environment missing");
+		}
+
+		const modelPluginCount = environment.config.plugins.filter(
+			(plugin) => plugin.name === "titanium:alloy:model",
+		).length;
+
+		expect(modelPluginCount).toBe(1);
 	} finally {
 		await server.close();
 		process.chdir(previousCwd);
@@ -219,30 +263,161 @@ test("prebundles Alloy dependencies with Titanium global require semantics", asy
 			"alloy",
 			path.join(appRoot, "app/alloy.js"),
 		);
-		if (!("code" in alloyResult)) {
-			throw new Error("Expected optimized Alloy module import code");
-		}
-
-		const optimizedDependencyId = /__vite_ssr_import__\("([^"]+)"/.exec(
-			alloyResult.code,
-		)?.[1];
-		if (!optimizedDependencyId) {
-			throw new Error("Expected optimized Alloy dependency import");
-		}
-
-		const optimizedResult = await environment.fetchModule(
-			optimizedDependencyId,
-			path.join(appRoot, "app/alloy.js"),
-		);
-		if (!("code" in optimizedResult)) {
+		if (!("code" in alloyResult) || !("id" in alloyResult)) {
 			throw new Error("Expected optimized Alloy dependency code");
 		}
 
-		expect(optimizedResult.code).not.toContain("node:module");
-		expect(optimizedResult.code).not.toContain("createRequire");
-		expect(optimizedResult.code).toContain('typeof require !== "undefined"');
+		expect(alloyResult.id).toContain("/deps_titanium/");
+		expect(alloyResult.code).not.toContain("node:module");
+		expect(alloyResult.code).not.toContain("createRequire");
 	} finally {
 		await server.close();
+		process.chdir(previousCwd);
+	}
+});
+
+test("prebundles Titanium-style Alloy runtime paths in dev", async () => {
+	const appRoot = path.join(repoRoot, "apps/titanium-vite-alloy");
+	const previousCwd = process.cwd();
+	process.chdir(appRoot);
+
+	const bridgePlugin = {
+		name: "ti-vite-bridge",
+		api: {
+			context: {
+				command: "serve",
+				deployType: "development",
+				devServer: { origin: "http://127.0.0.1:5173" },
+				nativeModules: [],
+				platform: "ios",
+				target: "simulator",
+			},
+			reportTiApiUsage: vi.fn(),
+		},
+	};
+	const server = await createServer({
+		cacheDir: path.join(tmpdir(), `titanium-vite-test-${Date.now()}`),
+		configFile: false,
+		logLevel: "silent",
+		plugins: [bridgePlugin, titanium({ projectType: "alloy" })],
+		root: appRoot,
+		server: { middlewareMode: true },
+	});
+
+	try {
+		const environment = server.environments.titanium;
+		if (!environment) {
+			throw new Error("Titanium environment missing");
+		}
+
+		const runtimeIds = [
+			"/alloy",
+			"/alloy/backbone",
+			"/alloy/controllers/BaseController",
+			"/alloy/sync/properties",
+			"/alloy/underscore",
+		];
+
+		for (const runtimeId of runtimeIds) {
+			const result = await environment.fetchModule(
+				runtimeId,
+				path.join(appRoot, "app/alloy.js"),
+			);
+			if (!("id" in result)) {
+				throw new Error(`Expected optimized module result for ${runtimeId}`);
+			}
+
+			expect(result.id).toContain("/deps_titanium/");
+			expect(result.id).not.toContain("/node_modules/alloy/");
+		}
+	} finally {
+		await server.close();
+		process.chdir(previousCwd);
+	}
+});
+
+test("limits forced serve build to the Titanium module runner bootstrap", async () => {
+	const appRoot = path.join(repoRoot, "apps/titanium-vite-alloy");
+	const previousCwd = process.cwd();
+	process.chdir(appRoot);
+
+	const bridgePlugin = {
+		name: "ti-vite-bridge",
+		api: {
+			context: {
+				command: "serve",
+				deployType: "development",
+				devServer: { origin: "http://127.0.0.1:5173" },
+				nativeModules: [],
+				platform: "ios",
+				target: "simulator",
+			},
+			reportTiApiUsage: vi.fn(),
+		},
+	};
+	const builder = await createBuilder({
+		configFile: false,
+		logLevel: "silent",
+		plugins: [bridgePlugin, titanium({ projectType: "alloy" })],
+		root: appRoot,
+	});
+
+	try {
+		const environment = builder.environments.titanium;
+		if (!environment) {
+			throw new Error("Titanium environment missing");
+		}
+		const input = environment.config.build.rollupOptions.input;
+
+		expect(input).toEqual({
+			"module-runner": "virtual:titanium/module-runner",
+		});
+	} finally {
+		process.chdir(previousCwd);
+	}
+});
+
+test("keeps app graph entries for Titanium production builds", async () => {
+	const appRoot = path.join(repoRoot, "apps/titanium-vite-alloy");
+	const previousCwd = process.cwd();
+	process.chdir(appRoot);
+
+	const bridgePlugin = {
+		name: "ti-vite-bridge",
+		api: {
+			context: {
+				command: "build",
+				deployType: "production",
+				nativeModules: [],
+				platform: "ios",
+				target: "dist-appstore",
+			},
+			reportTiApiUsage: vi.fn(),
+		},
+	};
+	const builder = await createBuilder({
+		configFile: false,
+		logLevel: "silent",
+		plugins: [bridgePlugin, titanium({ projectType: "alloy" })],
+		root: appRoot,
+	});
+
+	try {
+		const environment = builder.environments.titanium;
+		if (!environment) {
+			throw new Error("Titanium environment missing");
+		}
+		const input = environment.config.build.rollupOptions.input;
+
+		expect(input).toEqual(
+			expect.objectContaining({
+				"module-runner": "virtual:titanium/module-runner",
+				main: "virtual:titanium/main",
+			}),
+		);
+		expectInputRecord(input);
+		expect(Object.keys(input)).toContain("alloy/controllers/index");
+	} finally {
 		process.chdir(previousCwd);
 	}
 });
@@ -265,4 +440,10 @@ async function collectPluginNames(
 	}
 
 	return names;
+}
+
+function expectInputRecord(value: unknown): asserts value is Record<string, unknown> {
+	if (!value || typeof value !== "object" || Array.isArray(value)) {
+		throw new Error("Expected build input to be an object");
+	}
 }

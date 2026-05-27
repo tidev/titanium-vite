@@ -2,11 +2,18 @@ import type { EnvironmentOptions, ResolvedConfig, WebSocketServer } from "vite";
 import { mergeConfig } from "vite";
 
 import { createTitaniumBuildEnvironment } from "./build.js";
-import { createTitaniumDevEnvironment } from "./dev.js";
+import type { TitaniumBuildMode } from "./build.js";
+import {
+  createTitaniumDevEnvironment,
+  createTitaniumDevEnvironmentOptions,
+} from "./dev.js";
 import { createTitaniumHotTransport } from "./hot.js";
+
+type TitaniumBuildModeResolver = TitaniumBuildMode | (() => TitaniumBuildMode);
 
 export function createTitaniumEnvironment(
   userConfig: EnvironmentOptions = {},
+  buildMode: TitaniumBuildModeResolver = "app",
 ): EnvironmentOptions {
   return mergeConfig(
     {
@@ -24,10 +31,18 @@ export function createTitaniumEnvironment(
       },
       build: {
         createEnvironment(name: string, config: ResolvedConfig) {
-          return createTitaniumBuildEnvironment(name, config);
+          return createTitaniumBuildEnvironment(
+            name,
+            config,
+            resolveBuildMode(buildMode),
+          );
         },
       },
     },
-    userConfig,
+    createTitaniumDevEnvironmentOptions(userConfig),
   );
+}
+
+function resolveBuildMode(buildMode: TitaniumBuildModeResolver): TitaniumBuildMode {
+  return typeof buildMode === "function" ? buildMode() : buildMode;
 }

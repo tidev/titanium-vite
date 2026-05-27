@@ -26,31 +26,7 @@ export function createTitaniumDevEnvironment(
   config: ResolvedConfig,
   context: DevEnvironmentContext,
 ) {
-  const environmentOptions = config.environments[name] ?? context.options;
-  /*
-  const connection = {
-    on(event: string, listener: () => void) {
-      console.log("transport.on", event, listener);
-    },
-    send(data: HotPayload) {
-      console.log("transport.send", data);
-    },
-  };
-
-  const transport: HotChannel = {
-    on: (event, listener) => {
-      console.log("transport.on", event);
-    },
-    send: (data) => {
-      console.log("transport.send", data);
-    },
-  };
-  */
-
-  const titaniumDevEnvironment = new TitaniumDevEnvironment(name, config, {
-    ...context,
-    options: createTitaniumDevEnvironmentOptions(environmentOptions),
-  });
+  const titaniumDevEnvironment = new TitaniumDevEnvironment(name, config, context);
   return titaniumDevEnvironment;
 }
 
@@ -86,6 +62,14 @@ class TitaniumDevEnvironment extends DevEnvironment {
         externalize: builtinId,
         type: "builtin",
       };
+    }
+
+    const optimizedResolvedId = await this.resolveOptimizedResolvedDependency(
+      id,
+      importer,
+    );
+    if (optimizedResolvedId) {
+      return super.fetchModule(optimizedResolvedId, importer, options);
     }
 
     if (!importer) {
@@ -126,6 +110,28 @@ class TitaniumDevEnvironment extends DevEnvironment {
     return super.fetchModule(resolved.id, importer, options);
   }
 
+  private async resolveOptimizedResolvedDependency(
+    id: string,
+    importer: string | undefined,
+  ) {
+    const resolved = await this.pluginContainer.resolveId(id, importer);
+    if (!resolved) {
+      return undefined;
+    }
+
+    const resolvedId = cleanUrl(resolved.id);
+    if (!isNodeModuleJavaScript(resolvedId)) {
+      return undefined;
+    }
+
+    const importId = findPackageImportId(resolvedId);
+    if (!importId) {
+      return undefined;
+    }
+
+    return this.resolveOptimizedDependency(importId, resolvedId);
+  }
+
   private async resolveOptimizedDependency(id: string, resolvedId: string) {
     const depsOptimizer = this.depsOptimizer;
     const cleanId = cleanUrl(resolvedId);
@@ -141,7 +147,12 @@ class TitaniumDevEnvironment extends DevEnvironment {
     const optimizedInfo = depsOptimizer.registerMissingImport(id, cleanId);
     depsOptimizer.run();
     await optimizedInfo.processing;
-    return depsOptimizer.getOptimizedDepId(optimizedInfo);
+    return depsOptimizer.getOptimizedDepId(
+      depsOptimizer.metadata.optimized[id] ??
+        depsOptimizer.metadata.discovered[id] ??
+        depsOptimizer.metadata.chunks[id] ??
+        optimizedInfo,
+    );
   }
 }
 
