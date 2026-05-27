@@ -7,6 +7,7 @@ import {
   createAlloyOptimizeDepsRolldownOptions,
   createAlloyResolveAliases,
   createAlloyServerFsAllow,
+  patchForViteCompatibility,
 } from "./core.js";
 
 test("creates Vite and optimizer aliases from one Alloy alias source", () => {
@@ -116,4 +117,25 @@ test("uses target-neutral optimization for Titanium CJS runtime dependencies", (
     existing: "/project/existing.js",
     "/alloy/underscore": "/project/alloy/underscore.js",
   });
+});
+
+test("unwraps Vite ESM namespaces for Alloy sync adapter requires", () => {
+  const code = patchForViteCompatibility(`
+exports.M = function() {
+\tmod = require('/alloy/sync/' + adapter.type);
+};
+exports.C = function() {
+\tmod = require('/alloy/sync/' + config.adapter.type);
+};
+`);
+
+  expect(code).toContain(
+    "mod = require('/alloy/sync/' + adapter.type);\n\t\tmod = mod && mod.default ? mod.default : mod;",
+  );
+  expect(code).toContain(
+    "mod = require('/alloy/sync/' + config.adapter.type);\n\t\tmod = mod && mod.default ? mod.default : mod;",
+  );
+  expect(
+    code.match(/mod = mod && mod\.default \? mod\.default : mod;/g),
+  ).toHaveLength(2);
 });

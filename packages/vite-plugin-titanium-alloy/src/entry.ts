@@ -29,7 +29,6 @@ export function entryPlugin(appDir: string): Plugin {
     transform(code, id) {
       if (id === ALLOY_ENTRY) {
         return `import Alloy from '/alloy';
-import IndexController from '/alloy/controllers/index';
 
 // Always define globals to make sure they are the correct ones loaded via LiveView
 global.Alloy = Alloy;
@@ -37,6 +36,8 @@ global._ = Alloy._;
 global.Backbone = Alloy.Backbone;
 
 ${code}
+
+const { default: IndexController } = await import('/alloy/controllers/index');
 
 Ti.UI.addEventListener('sessionbegin', function () {
 	new IndexController();

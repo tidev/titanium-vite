@@ -17,7 +17,41 @@ Base notes for a general Alloy ESM migration guide. Keep concise.
 - The app entry imports `/alloy/controllers/index` directly and instantiates it.
 - Static XML-generated dependencies should be emitted by alloy-devkit as ESM imports.
 - Literal app-authored `Alloy.createController()`, `Alloy.createModel()`, `Alloy.createCollection()`, and `Alloy.createWidget()` calls are compiler-rewritten to static ESM imports in Alloy ESM mode.
-- Dynamic controller/model names remain user-authored dynamic imports or migration errors until a transform explicitly supports Vite-compatible partial dynamic expressions.
+- Unbounded dynamic controller/model names remain migration errors in Alloy ESM
+  mode. App code should either refactor them to explicit static imports for
+  small finite sets, or to Vite-native eager `import.meta.glob()` maps for
+  static-prefix dynamic sets.
+- Alloy runtime sync adapter loads remain internal runtime dependencies. Vite
+  may wrap optimized CJS adapters in ESM namespaces, so the Alloy runtime
+  compatibility layer must normalize those adapter objects before `Alloy.M()`
+  or `Alloy.C()` call adapter hooks.
+
+## Dynamic Controller Names
+
+- Prefer explicit static imports when a dynamic controller choice is a small
+  finite set across unrelated directories:
+  ```js
+  import LoginController from "./auth/login.js";
+  import ContainerController from "./container.js";
+
+  const controller = loggedIn
+    ? new ContainerController(args)
+    : new LoginController(args);
+  ```
+- Use eager `import.meta.glob()` when the dynamic part is bounded by a static
+  directory prefix:
+  ```js
+  const controllers = import.meta.glob("./properties/*.js", {
+    eager: true,
+    import: "default",
+  });
+
+  const Controller = controllers[`./properties/${type}.js`];
+  if (!Controller) throw new Error(`Unknown property controller: ${type}`);
+  const controller = new Controller(args);
+  ```
+- Do not preserve arbitrary `Alloy.createController(name)` in ESM mode unless
+  the possible module set is statically visible to Vite.
 
 ## Widget Definitions
 

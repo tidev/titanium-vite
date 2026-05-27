@@ -77,6 +77,11 @@ interface AlloyOptimizeDepsRolldownOptions {
   platform?: OptimizeDepsRolldownOptions["platform"];
 }
 
+interface AlloyOptimizerConfigPluginOptions {
+  alloyMain: string;
+  alloyWidget: string;
+}
+
 interface ViteResolveAlias {
   find: string | RegExp;
   replacement: string;
@@ -256,7 +261,10 @@ export function createAlloyAliases({
   };
 }
 
-function alloyOptimizerConfigPlugin(ctx: AlloyContext): RolldownPlugin {
+function alloyOptimizerConfigPlugin(
+  ctx: AlloyContext,
+  options: AlloyOptimizerConfigPluginOptions,
+): RolldownPlugin {
   return {
     name: "titanium:alloy:optimizer-config",
     resolveId(id) {
@@ -267,6 +275,12 @@ function alloyOptimizerConfigPlugin(ctx: AlloyContext): RolldownPlugin {
     load(id) {
       if (id === ALLOY_OPTIMIZER_CONFIG) {
         return createAlloyConfigCode(ctx);
+      }
+    },
+    transform(code, id) {
+      const cleanId = cleanUrl(id);
+      if (cleanId === options.alloyMain || cleanId === options.alloyWidget) {
+        return patchForViteCompatibility(code);
       }
     },
   };
@@ -353,7 +367,10 @@ export function corePlugin(ctx: AlloyContext, platform: Platform): Plugin {
         createAlloyOptimizeDepsRolldownOptions({
           aliases: alloyAliases.optimizeDeps,
           existing: config.optimizeDeps.rolldownOptions,
-          plugin: alloyOptimizerConfigPlugin(ctx),
+          plugin: alloyOptimizerConfigPlugin(ctx, {
+            alloyMain: ALLOY_MAIN,
+            alloyWidget: ALLOY_WIDGET,
+          }),
         });
       const titaniumOptimizeDeps =
         config.environments?.titanium?.optimizeDeps;
@@ -376,7 +393,10 @@ export function corePlugin(ctx: AlloyContext, platform: Platform): Plugin {
             rolldownOptions: createAlloyOptimizeDepsRolldownOptions({
               aliases: alloyAliases.optimizeDeps,
               existing: titaniumOptimizeDeps?.rolldownOptions,
-              plugin: alloyOptimizerConfigPlugin(ctx),
+              plugin: alloyOptimizerConfigPlugin(ctx, {
+                alloyMain: ALLOY_MAIN,
+                alloyWidget: ALLOY_WIDGET,
+              }),
               // Titanium has a global CommonJS `require`, but it is not Node
               // and cannot resolve `node:` specifiers. Keep optimizer helpers
               // target-neutral so CJS deps use the runtime `require` instead
@@ -423,7 +443,7 @@ export function corePlugin(ctx: AlloyContext, platform: Platform): Plugin {
  *
  * @param content File content to modify
  */
-function patchForViteCompatibility(content: string) {
+export function patchForViteCompatibility(content: string) {
   // Controller modules are ESM-shaped in dev, but production CJS chunks expose
   // the constructor directly once entry exports are preserved.
   content = requireControllerExport(content, appControllerRequestPattern);
@@ -434,6 +454,16 @@ function patchForViteCompatibility(content: string) {
     .replace(
       "exports.CFG = require('/alloy/CFG');",
       "exports.CFG = require('/alloy/CFG').default;",
+    )
+    // Alloy sync adapters are optimized CJS modules in Vite. Normalize the
+    // namespace object back to the adapter object expected by Alloy.M/C.
+    .replaceAll(
+      "mod = require('/alloy/sync/' + adapter.type);",
+      "mod = require('/alloy/sync/' + adapter.type);\n\t\tmod = mod && mod.default ? mod.default : mod;",
+    )
+    .replaceAll(
+      "mod = require('/alloy/sync/' + config.adapter.type);",
+      "mod = require('/alloy/sync/' + config.adapter.type);\n\t\tmod = mod && mod.default ? mod.default : mod;",
     )
     // remove ucfirst in model/collection requires
     .replace(/models\/'\s\+\sucfirst\(name\)/g, "models/' + name")

@@ -47,6 +47,8 @@ Vite-based dev environment + plugin set for the Titanium SDK. Experimental, acti
 | Titanium SDK | `../titanium_mobile` |
 | Lambus Titanium App | `../lambus-titanium` |
 
+Use the `vite-build` branch in `../lambus-titanium` when validating Vite-specific behavior against the Lambus app.
+
 ## CONVENTIONS
 - This repo is pre-release. Prefer the cleaner long-term architecture over
   compatibility-preserving patches, even when that introduces breaking changes.
