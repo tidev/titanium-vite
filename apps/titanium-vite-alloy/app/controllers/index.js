@@ -1,7 +1,6 @@
 import { formatLabelText } from "../lib/app-utils";
-import { Model as BookModel } from "/alloy/models/Book";
 
-const book = new BookModel({
+const book = Alloy.createModel("Book", {
 	title: "Titanium Vite",
 	chapterCount: 3,
 });

@@ -16,7 +16,8 @@ Base notes for a general Alloy ESM migration guide. Keep concise.
 - App-owned controllers, models, collections, and widgets must enter the graph through ESM imports.
 - The app entry imports `/alloy/controllers/index` directly and instantiates it.
 - Static XML-generated dependencies should be emitted by alloy-devkit as ESM imports.
-- Dynamic controller/model names remain user-authored dynamic imports or migration errors until a transform explicitly supports them.
+- Literal app-authored `Alloy.createController()`, `Alloy.createModel()`, and `Alloy.createCollection()` calls are compiler-rewritten to static ESM imports in Alloy ESM mode.
+- Dynamic controller/model names remain user-authored dynamic imports or migration errors until a transform explicitly supports Vite-compatible partial dynamic expressions.
 
 ## Controller Exports
 
