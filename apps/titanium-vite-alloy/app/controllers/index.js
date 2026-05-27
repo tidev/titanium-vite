@@ -4,6 +4,9 @@ const book = Alloy.createModel("Book", {
 	title: "Titanium Vite",
 	chapterCount: 3,
 });
+const authoredWidget = Alloy.createWidget("com.titanium.esmWidget", {
+	source: "authored",
+});
 const dynamicControllerName = "hello";
 
 function formatBookSummary(model) {
@@ -37,6 +40,8 @@ function doClick() {
 
 $.modelLabel.text = formatBookSummary(book);
 console.log(`[alloy-esm] book summary: ${$.modelLabel.text}`);
+console.log(`[alloy-esm] authored widget: ${authoredWidget.getMessage()}`);
+console.log(`[alloy-esm] xml widget: ${$.xmlWidget.getMessage()}`);
 void loadDynamicController().catch((error) => {
 	console.log("[alloy-esm] dynamic import failed", error);
 });

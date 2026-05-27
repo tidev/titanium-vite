@@ -6,6 +6,8 @@
 	"os:android": {},
 	"os:ios": {},
 	"os:windows": {},
-	"dependencies": {},
+	"dependencies": {
+		"com.titanium.esmWidget": "1.0.0"
+	},
 	"backbone": "1.4.0"
 }

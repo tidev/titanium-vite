@@ -1,0 +1,13 @@
+{
+	"id": "com.titanium.esmWidget",
+	"name": "com.titanium.esmWidget",
+	"description": "ESM widget fixture",
+	"author": "",
+	"version": "1.0.0",
+	"copyright": "",
+	"license": "MIT",
+	"min-alloy-version": "3.0.0",
+	"min-titanium-version": "13.0.0",
+	"tags": "",
+	"platforms": ""
+}

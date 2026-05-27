@@ -16,8 +16,16 @@ Base notes for a general Alloy ESM migration guide. Keep concise.
 - App-owned controllers, models, collections, and widgets must enter the graph through ESM imports.
 - The app entry imports `/alloy/controllers/index` directly and instantiates it.
 - Static XML-generated dependencies should be emitted by alloy-devkit as ESM imports.
-- Literal app-authored `Alloy.createController()`, `Alloy.createModel()`, and `Alloy.createCollection()` calls are compiler-rewritten to static ESM imports in Alloy ESM mode.
+- Literal app-authored `Alloy.createController()`, `Alloy.createModel()`, `Alloy.createCollection()`, and `Alloy.createWidget()` calls are compiler-rewritten to static ESM imports in Alloy ESM mode.
 - Dynamic controller/model names remain user-authored dynamic imports or migration errors until a transform explicitly supports Vite-compatible partial dynamic expressions.
+
+## Widget Definitions
+
+- Static XML `<Widget>` and `<Require type="widget">` dependencies should be emitted as ESM imports from `/alloy/widgets/<id>/controllers/<name>`.
+- Widget-authored literal `Widget.createController()`, `Widget.createModel()`, and `Widget.createCollection()` calls are compiler-rewritten to static ESM imports in Alloy ESM mode.
+- ESM widget controllers should not rely on runtime `WPATH()`.
+- Literal legacy `require(WPATH("module"))` can be compiler-rewritten to an ESM import from `/alloy/widgets/<id>/lib/module`.
+- Dynamic `WPATH()` remains a migration error in ESM mode.
 
 ## Controller Exports
 
