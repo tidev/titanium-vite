@@ -10,6 +10,14 @@ Base notes for a general Alloy ESM migration guide. Keep concise.
   `exports.*` or `module.exports` syntax.
 - Any CJS emitted for the Titanium runtime is an implementation detail, not the source contract.
 
+## Static Loading Contract
+
+- Titanium Vite dev mode preloads only shared Alloy runtime modules and sync adapters.
+- App-owned controllers, models, collections, and widgets must enter the graph through ESM imports.
+- The app entry imports `/alloy/controllers/index` directly and instantiates it.
+- Static XML-generated dependencies should be emitted by alloy-devkit as ESM imports.
+- Dynamic controller/model names remain user-authored dynamic imports or migration errors until a transform explicitly supports them.
+
 ## Controller Exports
 
 - Public controller interface methods should use ESM exports:

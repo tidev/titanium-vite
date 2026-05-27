@@ -99,12 +99,10 @@ function runtimeEntriesPlugin(ctx: AlloyContext, platform: Platform): Plugin {
 function createDevModulePreloads(entries: CollectedEntries): string[] {
   const chunkNames = Object.keys(entries.byChunk);
   const syncChunks = chunkNames.filter(isAlloySyncChunk);
-  const appChunks = chunkNames.filter((chunkName) => !isAlloySyncChunk(chunkName));
 
   return [
     ...ALLOY_DEV_RUNTIME_PRELOADS,
     ...syncChunks.map((chunkName) => `/${chunkName}`),
-    ...appChunks.map((chunkName) => `/${chunkName}`),
   ];
 }
 

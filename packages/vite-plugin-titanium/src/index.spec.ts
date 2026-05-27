@@ -61,6 +61,111 @@ test("allows Alloy app modules to import Titanium-supported builtins in dev", as
 	}
 });
 
+test("starts the Alloy app through a static index controller import in dev", async () => {
+	const appRoot = path.join(repoRoot, "apps/titanium-vite-alloy");
+	const previousCwd = process.cwd();
+	process.chdir(appRoot);
+
+	const bridgePlugin = {
+		name: "ti-vite-bridge",
+		api: {
+			context: {
+				command: "serve",
+				deployType: "development",
+				devServer: { origin: "http://127.0.0.1:5173" },
+				nativeModules: [],
+				platform: "ios",
+				target: "simulator",
+			},
+			reportTiApiUsage: vi.fn(),
+		},
+	};
+	const server = await createServer({
+		configFile: false,
+		logLevel: "silent",
+		plugins: [bridgePlugin, titanium({ projectType: "alloy" })],
+		root: appRoot,
+		server: { middlewareMode: true },
+	});
+
+	try {
+		const environment = server.environments.titanium;
+		if (!environment) {
+			throw new Error("Titanium environment missing");
+		}
+
+		const result = await environment.fetchModule(
+			path.join(appRoot, "app/alloy.js"),
+			"virtual:titanium/main",
+		);
+
+		if (!("code" in result)) {
+			throw new Error("Expected transformed module code");
+		}
+
+		expect(result.code).toContain("/app/controllers/index.js");
+		expect(result.code).toContain("new __vite_ssr_import_");
+		expect(result.code).not.toContain("Alloy.createController('index')");
+	} finally {
+		await server.close();
+		process.chdir(previousCwd);
+	}
+});
+
+test("keeps Alloy controller dynamic imports on the Vite module path", async () => {
+	const appRoot = path.join(repoRoot, "apps/titanium-vite-alloy");
+	const previousCwd = process.cwd();
+	process.chdir(appRoot);
+
+	const bridgePlugin = {
+		name: "ti-vite-bridge",
+		api: {
+			context: {
+				command: "serve",
+				deployType: "development",
+				devServer: { origin: "http://127.0.0.1:5173" },
+				nativeModules: [],
+				platform: "ios",
+				target: "simulator",
+			},
+			reportTiApiUsage: vi.fn(),
+		},
+	};
+	const server = await createServer({
+		configFile: false,
+		logLevel: "silent",
+		plugins: [bridgePlugin, titanium({ projectType: "alloy" })],
+		root: appRoot,
+		server: { middlewareMode: true },
+	});
+
+	try {
+		const environment = server.environments.titanium;
+		if (!environment) {
+			throw new Error("Titanium environment missing");
+		}
+
+		const result = await environment.fetchModule(
+			path.join(appRoot, "app/controllers/index.js"),
+			path.join(appRoot, "app/alloy.js"),
+		);
+
+		if (!("code" in result)) {
+			throw new Error("Expected transformed module code");
+		}
+
+		expect(result.code).toContain(
+			'__vite_ssr_dynamic_import__("/app/controllers/dynamic/hello.js")',
+		);
+		expect(result.code).toContain('"./dynamic/hello.js"');
+		expect(result.code).toContain("`./dynamic/${dynamicControllerName}.js`");
+		expect(result.code).not.toContain('require("./dynamic/hello.js")');
+	} finally {
+		await server.close();
+		process.chdir(previousCwd);
+	}
+});
+
 test("does not duplicate plugins in the Titanium dev environment", async () => {
 	const appRoot = path.join(repoRoot, "apps/titanium-vite-alloy");
 	const previousCwd = process.cwd();

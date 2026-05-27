@@ -29,6 +29,7 @@ export function entryPlugin(appDir: string): Plugin {
     transform(code, id) {
       if (id === ALLOY_ENTRY) {
         return `import Alloy from '/alloy';
+import IndexController from '/alloy/controllers/index';
 
 // Always define globals to make sure they are the correct ones loaded via LiveView
 global.Alloy = Alloy;
@@ -38,11 +39,11 @@ global.Backbone = Alloy.Backbone;
 ${code}
 
 Ti.UI.addEventListener('sessionbegin', function () {
-	Alloy.createController('index');
+	new IndexController();
 });
 
 if ((typeof Ti.UI.hasSession === 'undefined') || Ti.UI.hasSession) {
-	Alloy.createController('index');
+	new IndexController();
 }`;
       }
     },

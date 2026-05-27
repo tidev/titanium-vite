@@ -10,18 +10,27 @@ const repoRoot = path.resolve(
   "../../..",
 );
 
-test("preloads Alloy sync adapters before model entries in dev", () => {
+test("preloads only shared Alloy runtime modules in dev", () => {
   const appRoot = path.join(repoRoot, "apps/titanium-vite-alloy");
   const preloads = collectTitaniumDevModulePreloads(
     resolveAlloyPlugins(appRoot, "ios"),
   );
 
-  expect(preloads.indexOf("/alloy/sync/properties")).toBeLessThan(
-    preloads.indexOf("/alloy/models/Book"),
+  expect(preloads).toEqual(
+    expect.arrayContaining([
+      "/alloy",
+      "/alloy/CFG",
+      "/alloy/backbone",
+      "/alloy/controllers/BaseController",
+      "/alloy/underscore",
+      "/alloy/sync/properties",
+    ]),
   );
-  expect(preloads.indexOf("/alloy/sync/properties")).toBeLessThan(
-    preloads.indexOf("/alloy/controllers/index"),
+  expect(preloads.indexOf("/alloy/sync/properties")).toBeGreaterThan(
+    preloads.indexOf("/alloy/underscore"),
   );
+  expect(preloads).not.toContain("/alloy/controllers/index");
+  expect(preloads).not.toContain("/alloy/models/Book");
 });
 
 function collectTitaniumDevModulePreloads(plugins: readonly Plugin[]): string[] {
