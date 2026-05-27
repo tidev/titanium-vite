@@ -4,7 +4,6 @@
   "description": "",
   "type": "module",
   "scripts": {
-    "build": "ti build"
   },
   "keywords": [],
   "author": "",
