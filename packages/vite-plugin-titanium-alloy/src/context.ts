@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import fs from "node:fs";
 import path from "node:path";
 import type { AlloyCompiler, AlloyConfig } from "alloy-compiler";
 import type { Plugin, ViteDevServer } from "vite";
@@ -12,6 +13,7 @@ const require = createRequire(import.meta.url);
 // A mapping of files in an Alloy project that require us to recreate the
 // Alloy compiler to properly update all internals
 const fullRecompileFiles = ["app/styles/app.tss", "app/config.json"];
+const appModuleExtensions: readonly string[] = [".js", ".mjs", ".cjs", ".ts"];
 
 export function initContextPlugin(context: AlloyContext): Plugin {
   return {
@@ -21,6 +23,51 @@ export function initContextPlugin(context: AlloyContext): Plugin {
       context.server = _server;
     },
   };
+}
+
+export function resolveAlloyModuleSpecifier(
+  specifier: string,
+  appDir: string,
+): string {
+  if (!isBareAppModuleCandidate(specifier)) {
+    return specifier;
+  }
+
+  const candidate = path.join(appDir, "lib", specifier);
+  if (!appModuleExists(candidate)) {
+    return specifier;
+  }
+
+  return `~/lib/${specifier.replace(/^\/+/, "")}`;
+}
+
+function isBareAppModuleCandidate(specifier: string): boolean {
+  if (specifier.startsWith("~/")) {
+    return false;
+  }
+  if (specifier.startsWith(".") || specifier.startsWith("/")) {
+    return false;
+  }
+  if (specifier.startsWith("@") || specifier.includes(":")) {
+    return false;
+  }
+  return true;
+}
+
+function appModuleExists(candidate: string): boolean {
+  if (fs.existsSync(candidate)) {
+    return true;
+  }
+
+  for (const extension of appModuleExtensions) {
+    if (fs.existsSync(`${candidate}${extension}`)) {
+      return true;
+    }
+  }
+
+  return appModuleExtensions.some((extension) =>
+    fs.existsSync(path.join(candidate, `index${extension}`)),
+  );
 }
 
 export class AlloyContext {
@@ -92,6 +139,8 @@ export class AlloyContext {
 
     return createCompiler({
       moduleFormat: "esm",
+      resolveModuleSpecifier: (specifier) =>
+        resolveAlloyModuleSpecifier(specifier, this.appDir),
       compileConfig: {
         projectDir: this.projectDir,
         alloyConfig,

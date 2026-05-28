@@ -35,13 +35,14 @@ declare module "alloy-compiler" {
 
   export interface CreateCompilerOptions {
     moduleFormat?: "cjs" | "esm";
+    resolveModuleSpecifier?: (specifier: string) => string;
     compileConfig: {
       projectDir: string;
       alloyConfig: AlloyConfig;
     };
   }
 
-  export function createCompiler(config: AlloyCompilerOptions): AlloyCompiler;
+  export function createCompiler(config: CreateCompilerOptions): AlloyCompiler;
 }
 
 declare module "alloy-compiler/lib/compilerUtils.js" {

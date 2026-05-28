@@ -16,7 +16,8 @@ Base notes for a general Alloy ESM migration guide. Keep concise.
 - App-owned controllers, models, collections, and widgets must enter the graph through ESM imports.
 - The app entry imports `/alloy/controllers/index` directly and instantiates it.
 - Static XML-generated dependencies should be emitted by alloy-devkit as ESM imports.
-- XML UI nodes using `module="..."` should be emitted as ESM namespace imports, for example `module="xp.ui"` becomes `import * as ... from "xp.ui"` and generated create calls use that binding instead of runtime `require("xp.ui")`.
+- XML UI nodes using `module="..."` should be emitted as ESM namespace imports and generated create calls should use that binding instead of runtime `require(...)`.
+- In Titanium Vite Alloy builds, XML `module="..."` values remain Alloy module ids, not app-authored JavaScript import specifiers. If the module id resolves to an app-local module under `app/lib`, the compiler emits a Vite-native `~` alias import. For example, `module="xp.ui"` with `app/lib/xp.ui.js` becomes `import * as ... from "~/lib/xp.ui"`.
 - Literal app-authored `Alloy.createController()`, `Alloy.createModel()`, `Alloy.createCollection()`, and `Alloy.createWidget()` calls are compiler-rewritten to static ESM imports in Alloy ESM mode.
 - Unbounded dynamic controller/model names remain migration errors in Alloy ESM
   mode. App code should either refactor them to explicit static imports for
@@ -122,6 +123,7 @@ Base notes for a general Alloy ESM migration guide. Keep concise.
 - Avoid new leading-slash Alloy imports such as `/alloy/underscore` in migrated
   app source.
 - Prefer static ESM imports for Titanium native modules used from app ESM source. Legacy `require("native.module")` inside app helpers can still bypass Vite's module graph and may behave differently from static imports.
+- App-authored JavaScript should use Vite-native app-local imports such as `~/lib/xp.ui`. Alloy XML can keep app-local module ids such as `module="xp.ui"`; the Vite Alloy compiler normalizes those generated imports when the matching `app/lib` module exists.
 
 ## Known Follow-Up
 
