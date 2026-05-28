@@ -209,6 +209,9 @@ test("starts the Alloy app through a session-safe lazy index controller import i
 		);
 		expect(result.code).toContain("Ti.UI.addEventListener");
 		expect(result.code).toContain("void __alloyCreateIndexController()");
+		expect(result.code).toContain(
+			"const IndexController = __alloyIndexControllerModule.default ?? __alloyIndexControllerModule",
+		);
 		expect(result.code).toContain("new IndexController()");
 		expect(result.code).not.toContain(
 			"const { default: IndexController } = await __vite_ssr_dynamic_import__",

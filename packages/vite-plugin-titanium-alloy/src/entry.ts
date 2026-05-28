@@ -28,7 +28,14 @@ export function entryPlugin(appDir: string): Plugin {
 
     transform(code, id) {
       if (id === ALLOY_ENTRY) {
-        return `import Alloy from '/alloy';
+        return createAlloyEntryCode(code);
+      }
+    },
+  };
+}
+
+export function createAlloyEntryCode(code: string): string {
+  return `import Alloy from '/alloy';
 
 // Always define globals to make sure they are the correct ones loaded via LiveView
 global.Alloy = Alloy;
@@ -48,7 +55,8 @@ async function __alloyCreateIndexController() {
 	if (__alloyIndexControllerStarted) return;
 	__alloyIndexControllerStarted = true;
 
-	const { default: IndexController } = await __alloyLoadIndexController();
+	const __alloyIndexControllerModule = await __alloyLoadIndexController();
+	const IndexController = __alloyIndexControllerModule.default ?? __alloyIndexControllerModule;
 	new IndexController();
 }
 
@@ -62,7 +70,4 @@ void __alloyLoadIndexController().then(function () {
 	console.log('[alloy] index controller import failed', error);
 });
 `;
-      }
-    },
-  };
 }
