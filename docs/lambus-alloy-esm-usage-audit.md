@@ -111,7 +111,7 @@ Required Alloy DevKit work:
 - Compile XML `<Widget src="...">` / `<Require type="widget" src="...">` into static imports from `/alloy/widgets/<id>/controllers/<name>`.
 - Compile literal app-authored `Alloy.createWidget('id', args)` into a static widget controller import and constructor call.
 - Compile literal widget-authored `Widget.createController('child', args)` into static imports from the current widget's controllers directory.
-- Support or explicitly migrate literal `require(WPATH('...'))`; Lambus has one real usage.
+- Migrate literal `require(WPATH('...'))` through codemods; Lambus has one real usage, and Alloy ESM mode now fails loudly instead of compiler-rewriting that legacy module load.
 
 Preferred behavior:
 

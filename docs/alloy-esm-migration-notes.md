@@ -16,6 +16,7 @@ Base notes for a general Alloy ESM migration guide. Keep concise.
 - App-owned controllers, models, collections, and widgets must enter the graph through ESM imports.
 - The app entry imports `/alloy/controllers/index` directly and instantiates it.
 - Static XML-generated dependencies should be emitted by alloy-devkit as ESM imports.
+- XML UI nodes using `module="..."` should be emitted as ESM namespace imports, for example `module="xp.ui"` becomes `import * as ... from "xp.ui"` and generated create calls use that binding instead of runtime `require("xp.ui")`.
 - Literal app-authored `Alloy.createController()`, `Alloy.createModel()`, `Alloy.createCollection()`, and `Alloy.createWidget()` calls are compiler-rewritten to static ESM imports in Alloy ESM mode.
 - Unbounded dynamic controller/model names remain migration errors in Alloy ESM
   mode. App code should either refactor them to explicit static imports for
@@ -57,9 +58,9 @@ Base notes for a general Alloy ESM migration guide. Keep concise.
 
 - Static XML `<Widget>` and `<Require type="widget">` dependencies should be emitted as ESM imports from `/alloy/widgets/<id>/controllers/<name>`.
 - Widget-authored literal `Widget.createController()`, `Widget.createModel()`, and `Widget.createCollection()` calls are compiler-rewritten to static ESM imports in Alloy ESM mode.
-- ESM widget controllers should not rely on runtime `WPATH()`.
-- Literal legacy `require(WPATH("module"))` can be compiler-rewritten to an ESM import from `/alloy/widgets/<id>/lib/module`.
-- Dynamic `WPATH()` remains a migration error in ESM mode.
+- ESM widget controllers should not rely on runtime `WPATH()` for module loading.
+- Legacy `require(WPATH("module"))` is a migration error in ESM mode. Convert it to a static ESM import from the widget lib module, for example `import * as Button from "/alloy/widgets/<id>/lib/button"`, or use named imports when the target module has named exports.
+- Dynamic `WPATH()` module loading remains a migration error in ESM mode.
 
 ## Controller Exports
 
@@ -87,6 +88,10 @@ Base notes for a general Alloy ESM migration guide. Keep concise.
   ```bash
   npx @titanium-sdk/vite-codemod migrate-cjs-exports path/to/app
   npx @titanium-sdk/vite-codemod migrate-cjs-exports path/to/app --check
+  npx @titanium-sdk/vite-codemod migrate-cjs-requires path/to/app
+  npx @titanium-sdk/vite-codemod migrate-cjs-requires path/to/app --check --fail-on-unsupported=true
+  npx @titanium-sdk/vite-codemod migrate-widget-wpath-requires path/to/app
+  npx @titanium-sdk/vite-codemod migrate-widget-wpath-requires path/to/app --check
   ```
 - The codemod rewrites inline CommonJS exports to inline ESM declarations where safe:
   ```js
@@ -106,12 +111,15 @@ Base notes for a general Alloy ESM migration guide. Keep concise.
   ```
 - If `exports.name = ...` would collide with an existing local or imported `name`, the codemod fails that file instead of inventing a helper alias. Rename the existing binding or migrate that export manually so the public export name stays intentional.
 - The walker skips generated/dependency directories such as `Resources`, `build`, `dist`, `modules`, `node_modules`, `plugins`, and `references`.
+- `migrate-cjs-requires` rewrites safe top-level static `require()` declarations to ESM imports. Unsupported CommonJS can be audited with `--fail-on-unsupported=true`.
+- `migrate-widget-wpath-requires` rewrites top-level `const Module = require(WPATH("module"))` under `app/widgets/<id>/controllers/` to `import * as Module from "/alloy/widgets/<id>/lib/module"`. This belongs in codemods, not in Alloy DevKit runtime/compiler compatibility transforms.
 
 ## Import Specifiers
 
 - Prefer bare Alloy imports such as `alloy/underscore`.
 - Avoid new leading-slash Alloy imports such as `/alloy/underscore` in migrated
   app source.
+- Prefer static ESM imports for Titanium native modules used from app ESM source. Legacy `require("native.module")` inside app helpers can still bypass Vite's module graph and may behave differently from static imports.
 
 ## Known Follow-Up
 

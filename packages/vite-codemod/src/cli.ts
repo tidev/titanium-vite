@@ -9,6 +9,15 @@ import { transformNames } from "./index.js";
 
 const require = createRequire(import.meta.url);
 const [, , transformName, targetPath, ...forwardedArgs] = process.argv;
+const ignoredDirectories = [
+  "Resources",
+  "build",
+  "dist",
+  "modules",
+  "node_modules",
+  "plugins",
+  "references",
+];
 
 if (!isTransformName(transformName) || !targetPath) {
   printUsage();
@@ -25,7 +34,7 @@ if (!isTransformName(transformName) || !targetPath) {
       "--transform",
       transformPath,
       "--extensions=js,ts",
-      "--ignore-pattern=**/{Resources,build,dist,modules,node_modules,plugins,references}/**",
+      ...createIgnorePatternArgs(targetPath),
       ...runnerArgs,
       targetPath,
     ],
@@ -70,6 +79,8 @@ function isTransformName(value: string | undefined): value is TransformName {
 function normalizeForwardedArgs(args: string[]) {
   const runnerArgs: string[] = [];
   let dry = false;
+  let failOnUnsupported = false;
+  let hasFailOnError = false;
 
   for (const arg of args) {
     if (arg === "--check" || arg === "--dry") {
@@ -79,7 +90,20 @@ function normalizeForwardedArgs(args: string[]) {
     }
 
     if (arg === "--write") continue;
+    if (arg === "--fail-on-error" || arg === "--no-fail-on-error") {
+      hasFailOnError = true;
+    }
+    if (
+      arg === "--fail-on-unsupported" ||
+      arg.startsWith("--fail-on-unsupported=")
+    ) {
+      failOnUnsupported = true;
+    }
     runnerArgs.push(arg);
+  }
+
+  if (failOnUnsupported && !hasFailOnError) {
+    runnerArgs.push("--fail-on-error");
   }
 
   return { runnerArgs, dry };
@@ -92,4 +116,14 @@ function resolveTransformPath(transformName: TransformName) {
   );
 
   return path.join(packageRoot, "transforms", `${transformName}.cjs`);
+}
+
+function createIgnorePatternArgs(targetPath: string) {
+  const normalizedTargetPath = targetPath.split(path.sep).join(path.posix.sep);
+  const patterns = ignoredDirectories.flatMap((name) => [
+    `**/${name}/**`,
+    `${normalizedTargetPath}/**/${name}/**`,
+  ]);
+
+  return patterns.flatMap((pattern) => ["--ignore-pattern", pattern]);
 }
