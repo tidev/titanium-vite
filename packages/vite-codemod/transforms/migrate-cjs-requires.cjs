@@ -767,25 +767,13 @@ function isDynamicRequire(node) {
 }
 
 function containsRequire(node) {
-  if (!node || typeof node !== "object") return false;
-  if (
-    node.type === "CallExpression" &&
-    node.callee.type === "Identifier" &&
-    node.callee.name === "require"
-  ) {
-    return true;
-  }
-
-  for (const value of Object.values(node)) {
-    if (!value) continue;
-    if (Array.isArray(value)) {
-      if (value.some((item) => containsRequire(item))) return true;
-      continue;
-    }
-    if (typeof value === "object" && containsRequire(value)) return true;
-  }
-
-  return false;
+  return containsAstNode(node, (node) => {
+    return (
+      node.type === "CallExpression" &&
+      node.callee.type === "Identifier" &&
+      node.callee.name === "require"
+    );
+  });
 }
 
 function isModuleExports(node) {
@@ -834,26 +822,51 @@ function isUnderPlatformGuard(path) {
 }
 
 function containsPlatformConstant(node) {
-  if (!node || typeof node !== "object") return false;
-  if (
-    node.type === "Identifier" &&
-    (node.name === "OS_IOS" || node.name === "OS_ANDROID")
-  ) {
-    return true;
-  }
+  return containsAstNode(node, (node) => {
+    return (
+      node.type === "Identifier" &&
+      (node.name === "OS_IOS" || node.name === "OS_ANDROID")
+    );
+  });
+}
 
-  for (const value of Object.values(node)) {
-    if (!value) continue;
+const IGNORED_AST_TRAVERSAL_KEYS = new Set([
+  "comments",
+  "end",
+  "extra",
+  "leadingComments",
+  "loc",
+  "range",
+  "start",
+  "tokens",
+  "trailingComments",
+]);
+
+function containsAstNode(node, predicate, visited = new WeakSet()) {
+  if (!isAstNode(node)) return false;
+  if (visited.has(node)) return false;
+  visited.add(node);
+
+  if (predicate(node)) return true;
+
+  for (const [key, value] of Object.entries(node)) {
+    if (IGNORED_AST_TRAVERSAL_KEYS.has(key)) continue;
+
     if (Array.isArray(value)) {
-      if (value.some((item) => containsPlatformConstant(item))) return true;
+      if (value.some((item) => containsAstNode(item, predicate, visited))) {
+        return true;
+      }
       continue;
     }
-    if (typeof value === "object" && containsPlatformConstant(value)) {
-      return true;
-    }
+
+    if (containsAstNode(value, predicate, visited)) return true;
   }
 
   return false;
+}
+
+function isAstNode(value) {
+  return Boolean(value) && typeof value === "object" && typeof value.type === "string";
 }
 
 function throwUnsupported(kind, filePath, loc) {

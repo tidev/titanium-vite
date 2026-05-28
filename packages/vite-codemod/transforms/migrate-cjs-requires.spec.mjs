@@ -12,6 +12,7 @@ const fixtureRoot = path.join(
 );
 const appControllerPath = path.join(fixtureRoot, "app/controllers/index.js");
 const appUtilsPath = path.join(fixtureRoot, "app/lib/app-utils.js");
+const datePickerPath = path.join(fixtureRoot, "app/lib/date-picker.js");
 
 function run(source, options = {}, path = "app/controllers/index.js") {
   return transform(
@@ -247,6 +248,18 @@ describe("migrate-cjs-requires", () => {
       ),
     ).toBe(
       "if (OS_ANDROID) {\n\tconst PlayServices = require('ti.playservices');\n\tPlayServices.isAvailable();\n}\n",
+    );
+  });
+
+  test("does not overflow while checking nested guarded native module requires", () => {
+    expect(
+      run(
+        "import { isiOSVersionOrGreater, parseAsLocalDate } from 'app-utils';\nexport default class DatePickerDialog {\n\tconstructor(params = {}) {\n\t\t// Create an 18-years-ago date to go from, which makes the scrolling\n\t\teightteenYearsAgo.setDate(1);\n\t\tif (OS_ANDROID) {\n\t\t\tif (this.type === Ti.UI.PICKER_TYPE_DATE) {\n\t\t\t\tconst calendar = require('ti.calendar');\n\t\t\t}\n\t\t} else if (OS_IOS && this.showAsPicker) {\n\t\t}\n\t}\n}\n",
+        {},
+        datePickerPath,
+      ),
+    ).toBe(
+      'import { isiOSVersionOrGreater, parseAsLocalDate } from "~/lib/app-utils";\nexport default class DatePickerDialog {\n\tconstructor(params = {}) {\n\t\t// Create an 18-years-ago date to go from, which makes the scrolling\n\t\teightteenYearsAgo.setDate(1);\n\t\tif (OS_ANDROID) {\n\t\t\tif (this.type === Ti.UI.PICKER_TYPE_DATE) {\n\t\t\t\tconst calendar = require(\'ti.calendar\');\n\t\t\t}\n\t\t} else if (OS_IOS && this.showAsPicker) {\n\t\t}\n\t}\n}\n',
     );
   });
 
