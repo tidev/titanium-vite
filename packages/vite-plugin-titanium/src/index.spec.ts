@@ -61,7 +61,7 @@ test("allows Alloy app modules to import Titanium-supported builtins in dev", as
 	}
 });
 
-test("starts the Alloy app through a static index controller import in dev", async () => {
+test("starts the Alloy app through a session-safe lazy index controller import in dev", async () => {
 	const appRoot = path.join(repoRoot, "apps/titanium-vite-alloy");
 	const previousCwd = process.cwd();
 	process.chdir(appRoot);
@@ -103,8 +103,16 @@ test("starts the Alloy app through a static index controller import in dev", asy
 			throw new Error("Expected transformed module code");
 		}
 
-		expect(result.code).toContain("/app/controllers/index.js");
-		expect(result.code).toContain("new __vite_ssr_import_");
+		expect(result.code).toContain("async function __alloyCreateIndexController");
+		expect(result.code).toContain(
+			'__vite_ssr_dynamic_import__("/app/controllers/index.js")',
+		);
+		expect(result.code).toContain("Ti.UI.addEventListener");
+		expect(result.code).toContain("void __alloyCreateIndexController()");
+		expect(result.code).toContain("new IndexController()");
+		expect(result.code).not.toContain(
+			"const { default: IndexController } = await __vite_ssr_dynamic_import__",
+		);
 		expect(result.code).not.toContain("Alloy.createController('index')");
 	} finally {
 		await server.close();

@@ -37,15 +37,31 @@ global.Backbone = Alloy.Backbone;
 
 ${code}
 
-const { default: IndexController } = await import('/alloy/controllers/index');
+let __alloyIndexController;
+let __alloyIndexControllerStarted = false;
+
+function __alloyLoadIndexController() {
+	return __alloyIndexController ??= import('/alloy/controllers/index');
+}
+
+async function __alloyCreateIndexController() {
+	if (__alloyIndexControllerStarted) return;
+	__alloyIndexControllerStarted = true;
+
+	const { default: IndexController } = await __alloyLoadIndexController();
+	new IndexController();
+}
 
 Ti.UI.addEventListener('sessionbegin', function () {
-	new IndexController();
+	void __alloyCreateIndexController();
 });
 
-if ((typeof Ti.UI.hasSession === 'undefined') || Ti.UI.hasSession) {
-	new IndexController();
-}`;
+void __alloyLoadIndexController().then(function () {
+	void __alloyCreateIndexController();
+}).catch(function (error) {
+	console.log('[alloy] index controller import failed', error);
+});
+`;
       }
     },
   };
