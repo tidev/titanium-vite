@@ -2,7 +2,7 @@ import { expect, test } from "vitest";
 
 import { createAlloyEntryCode } from "./entry.js";
 
-test("normalizes lazy index controller imports across ESM and CJS output", async () => {
+test("normalizes lazy index controller imports across ESM and CJS output", () => {
   const code = createAlloyEntryCode("initialize();");
 
   expect(code).toContain(

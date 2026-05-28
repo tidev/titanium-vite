@@ -3,7 +3,7 @@ import path from 'path';
 import qs from 'querystring';
 import fs from 'fs-extra';
 import type { ResolvedId } from 'rolldown';
-import type { DevEnvironment, EnvironmentModuleNode, Plugin, ResolvedConfig } from 'vite';
+import type { EnvironmentModuleNode, Plugin, ResolvedConfig } from 'vite';
 import { createFilter } from 'vite';
 
 import { assertNoLegacyCommonJsExport } from './commonjs-exports.js';
@@ -13,6 +13,21 @@ const controllerRE =
 	/(?:[/\\]widgets[/\\]([^/\\]+))?[/\\](?:controllers)[/\\](.*)/;
 const EMPTY_EXPORT = 'export default {}';
 const VIEW_ONLY_PREFIX = '\0alloyview:';
+const INTEROP_HELPER_ID = 'virtual:titanium/alloy-interop';
+const RESOLVED_INTEROP_HELPER_ID = `\0${INTEROP_HELPER_ID}`;
+const INTEROP_HELPER_IMPORT =
+	'import { __alloyViteGetInteropProperty } from "virtual:titanium/alloy-interop";';
+const generatedNamespaceImportRE =
+	/^import \* as ([A-Za-z_$][\w$]*) from ['"]([^'"]+)['"];$/gm;
+const INTEROP_HELPER_CODE = `export function __alloyViteGetInteropProperty(moduleValue, propertyName) {
+\tif (moduleValue == null) return undefined;
+\tconst direct = moduleValue[propertyName];
+\tif (direct !== undefined) return direct;
+\tconst defaultValue = moduleValue.default;
+\tif (defaultValue == null || defaultValue === moduleValue) return undefined;
+\treturn defaultValue[propertyName];
+}
+`;
 
 interface AlloyQuery {
 	alloy?: boolean;
@@ -32,6 +47,47 @@ function parseAlloyRequest(id: string) {
 	};
 }
 
+export function patchModuleFactoryInterop(code: string): string {
+	let patched = code;
+	let didPatch = false;
+	for (const binding of collectNamespaceBindings(code)) {
+		const factoryRE = new RegExp(
+			`\\b${escapeRegExp(binding)}\\.(create[A-Za-z0-9_$]+)(\\s*\\|\\|)`,
+			'g'
+		);
+		if (!factoryRE.test(patched)) {
+			continue;
+		}
+		factoryRE.lastIndex = 0;
+		didPatch = true;
+		patched = patched.replace(
+			factoryRE,
+			(_match, factoryName: string, fallbackOperator: string) =>
+				`__alloyViteGetInteropProperty(${binding}, "${factoryName}")${fallbackOperator}`
+		);
+	}
+	if (!didPatch) return code;
+	if (patched.includes(INTEROP_HELPER_IMPORT)) return patched;
+	return `${INTEROP_HELPER_IMPORT}\n${patched}`;
+}
+
+function collectNamespaceBindings(code: string): string[] {
+	const bindings = new Set<string>();
+	let match = generatedNamespaceImportRE.exec(code);
+	while (match) {
+		const binding = match[1];
+		if (binding) {
+			bindings.add(binding);
+		}
+		match = generatedNamespaceImportRE.exec(code);
+	}
+	return [...bindings];
+}
+
+function escapeRegExp(value: string): string {
+	return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export function componentPlugin(ctx: AlloyContext): Plugin {
 	const { appDir } = ctx;
 	let config: ResolvedConfig;
@@ -45,6 +101,10 @@ export function componentPlugin(ctx: AlloyContext): Plugin {
 		},
 
 		async resolveId(id, importer) {
+			if (id === INTEROP_HELPER_ID) {
+				return RESOLVED_INTEROP_HELPER_ID;
+			}
+
 			// serve sub-part requests (*?alloy) as virtual modules
 			if (parseAlloyRequest(id).query.alloy) {
 				return id;
@@ -90,6 +150,10 @@ export function componentPlugin(ctx: AlloyContext): Plugin {
 		},
 
 		load(id) {
+			if (id === RESOLVED_INTEROP_HELPER_ID) {
+				return INTEROP_HELPER_CODE;
+			}
+
 			if (id.startsWith(VIEW_ONLY_PREFIX)) {
 				return '';
 			}
@@ -151,33 +215,38 @@ export function componentPlugin(ctx: AlloyContext): Plugin {
 
 				// server only handling for view and style dependency hmr; in
 				// production builds `this.environment` has no moduleGraph.
-				const moduleGraph = (this.environment as DevEnvironment).moduleGraph;
-				const thisModule = moduleGraph?.getModuleById(id);
-				if (thisModule) {
-					// record deps in the module graph so edits to view and style can trigger
-					// controller import to hot update
-					const depModules = new Set<string | EnvironmentModuleNode>();
-					const devBase = config.base;
-					for (const file of deps) {
-						depModules.add(
-							await moduleGraph.ensureEntryFromUrl(
-								stripBase(file, (config.server.origin ?? '') + devBase),
-								false
-							)
+				if ('moduleGraph' in this.environment) {
+					const { moduleGraph } = this.environment;
+					const thisModule = moduleGraph.getModuleById(id);
+					if (thisModule) {
+						// record deps in the module graph so edits to view and style can trigger
+						// controller import to hot update
+						const depModules = new Set<string | EnvironmentModuleNode>();
+						const devBase = config.base;
+						for (const file of deps) {
+							depModules.add(
+								await moduleGraph.ensureEntryFromUrl(
+									stripBase(file, (config.server.origin ?? '') + devBase),
+									false
+								)
+							);
+						}
+
+						await moduleGraph.updateModuleInfo(
+							thisModule,
+							depModules,
+							null,
+							new Set(),
+							null,
+							false,
 						);
 					}
-
-					moduleGraph.updateModuleInfo(
-						thisModule,
-						depModules,
-						null,
-						new Set(),
-						null,
-						false,
-					);
 				}
 
-				return { code: controllerCode, map };
+				return {
+					code: patchModuleFactoryInterop(controllerCode),
+					map
+				};
 			} else if (query.type === 'template' || query.type === 'style') {
 				return { code: EMPTY_EXPORT };
 			}

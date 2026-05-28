@@ -1,5 +1,6 @@
 declare module "alloy-compiler" {
   import type { Platform } from "@titanium-sdk/vite-utils";
+  import type { SourceMapInput } from "rolldown";
 
   export interface AlloyCompileConfig {
     alloyConfig: AlloyConfig;
@@ -20,7 +21,7 @@ declare module "alloy-compiler" {
     purgeStyleCache(id: string): void;
     compileComponent(options: { controllerContent: string; file: string }): {
       code: string;
-      map: any;
+      map: SourceMapInput;
       dependencies: string[];
     };
     compileModel(options: { file: string; content: string }): {
@@ -48,11 +49,11 @@ declare module "alloy-compiler" {
 declare module "alloy-compiler/lib/compilerUtils.js" {
   export function parseConfig(
     configFile: string,
-    alloyConfig: Record<string, any>,
-    config: Record<string, any>,
+    alloyConfig: object,
+    config: object,
   ): void;
 }
 
 declare module "alloy-compiler/lib/compilerUtils.js" {
-  export const compilerUtils: any;
+  export const compilerUtils: unknown;
 }
