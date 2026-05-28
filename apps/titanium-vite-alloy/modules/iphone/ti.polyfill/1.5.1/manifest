@@ -1,0 +1,19 @@
+#
+# this is your module manifest and used by Titanium
+# during compilation, packaging, distribution, etc.
+#
+version: 1.5.1
+apiversion: 2
+architectures: arm64 x86_64
+mac: false
+description: titanium-polyfill
+author: Hans Knöchel
+license: MIT
+copyright: Copyright (c) 2022 by Hans Knöchel
+
+# these should not be edited
+name: titanium-polyfill
+moduleid: ti.polyfill
+guid: 79b0059b-4142-47d3-8bac-586c5a859586
+platform: iphone
+minsdk: 11.0.0

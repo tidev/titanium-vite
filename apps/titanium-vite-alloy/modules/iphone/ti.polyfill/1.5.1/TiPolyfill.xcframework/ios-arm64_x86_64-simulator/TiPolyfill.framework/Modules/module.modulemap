@@ -1,0 +1,11 @@
+framework module TiPolyfill {
+  umbrella header "TiPolyfill.h"
+  export *
+
+  module * { export * }
+}
+
+module TiPolyfill.Swift {
+  header "TiPolyfill-Swift.h"
+  requires objc
+}

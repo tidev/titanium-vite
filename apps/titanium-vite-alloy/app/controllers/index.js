@@ -1,4 +1,5 @@
 import { formatLabelText } from "../lib/app-utils";
+import "../lib/slow-start.js";
 
 const book = Alloy.createModel("Book", {
 	title: "Titanium Vite",
@@ -38,10 +39,27 @@ function doClick() {
 	alert($.label.text);
 }
 
+function runNativeRequireProbe() {
+	console.log("[alloy-esm-repro] before require('ti.polyfill')");
+	const TiPolyfillViaRequire = require("ti.polyfill");
+	console.log(
+		`[alloy-esm-repro] after require('ti.polyfill'): createActionButton=${typeof TiPolyfillViaRequire.createActionButton}`,
+	);
+	console.log("[alloy-esm-repro] before require-path createActionButton()");
+	const button = TiPolyfillViaRequire.createActionButton({
+		title: "Native require button",
+		width: 260,
+		height: 48,
+	});
+	console.log("[alloy-esm-repro] after require-path createActionButton()");
+	$.index.add(button);
+}
+
 $.modelLabel.text = formatBookSummary(book);
 console.log(`[alloy-esm] book summary: ${$.modelLabel.text}`);
 console.log(`[alloy-esm] authored widget: ${authoredWidget.getMessage()}`);
 console.log(`[alloy-esm] xml widget: ${$.xmlWidget.getMessage()}`);
+runNativeRequireProbe();
 void loadDynamicController().catch((error) => {
 	console.log("[alloy-esm] dynamic import failed", error);
 });
