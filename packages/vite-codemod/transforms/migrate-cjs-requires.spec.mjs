@@ -251,6 +251,18 @@ describe("migrate-cjs-requires", () => {
     );
   });
 
+  test("converts guarded app-local module member requires", () => {
+    expect(
+      run(
+        "if (OS_IOS) {\n\tconst saveButton = require('xp.ui').createActionButton({ title: L('save') });\n}\n",
+        {},
+        datePickerPath,
+      ),
+    ).toBe(
+      'import * as xpUi from "~/lib/xp.ui";\nif (OS_IOS) {\n\tconst saveButton = xpUi.createActionButton({ title: L(\'save\') });\n}\n',
+    );
+  });
+
   test("does not overflow while checking nested guarded native module requires", () => {
     expect(
       run(

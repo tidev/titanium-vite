@@ -792,9 +792,15 @@ function isExportsMember(node) {
 function isGuardedPotentialNativeRequire(path, source, filePath) {
   return (
     isSharedCodePath(filePath) &&
+    !isResolvableAppLocalSource(source, filePath) &&
     isPotentialNativeModuleSource(source) &&
     isUnderPlatformGuard(path)
   );
+}
+
+function isResolvableAppLocalSource(source, filePath) {
+  if (source.startsWith("~/")) return true;
+  return normalizeAppLocalSource(source, filePath) !== source;
 }
 
 function isSharedCodePath(filePath) {
