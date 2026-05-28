@@ -2,7 +2,7 @@ import path from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { createBuilder, createServer } from "vite";
-import type { Plugin, PluginOption } from "vite";
+import type { InlineConfig, Plugin, PluginOption } from "vite";
 import { expect, test, vi } from "vitest";
 
 import { titanium } from "./index.js";
@@ -58,6 +58,106 @@ test("allows Alloy app modules to import Titanium-supported builtins in dev", as
 	} finally {
 		await server.close();
 		process.chdir(previousCwd);
+	}
+});
+
+test("adds a default tilde alias for Alloy app sources", async () => {
+	const appRoot = path.join(repoRoot, "apps/titanium-vite-alloy");
+	const server = await createTitaniumTestServer(appRoot, "alloy");
+
+	try {
+		const environment = server.environments.titanium;
+		if (!environment) {
+			throw new Error("Titanium environment missing");
+		}
+
+		const result = await environment.fetchModule(
+			"~/lib/app-utils",
+			path.join(appRoot, "app/controllers/index.js"),
+		);
+
+		if (!("code" in result)) {
+			throw new Error("Expected transformed module code");
+		}
+
+		expect(result.code).toContain("formatLabelText");
+		expect(findAliasReplacement(environment.config.resolve.alias, "~")).toBe(
+			path.join(appRoot, "app"),
+		);
+	} finally {
+		await server.close();
+	}
+});
+
+test("adds a default tilde alias for classic src sources", async () => {
+	const appRoot = path.join(repoRoot, "apps/titanium-vite-classic");
+	const server = await createTitaniumTestServer(appRoot, "classic");
+
+	try {
+		const environment = server.environments.titanium;
+		if (!environment) {
+			throw new Error("Titanium environment missing");
+		}
+
+		const result = await environment.fetchModule(
+			"~/utils",
+			path.join(appRoot, "src/app.js"),
+		);
+
+		if (!("code" in result)) {
+			throw new Error("Expected transformed module code");
+		}
+
+		expect(result.code).toContain('const foo = "bar"');
+		expect(findAliasReplacement(environment.config.resolve.alias, "~")).toBe(
+			path.join(appRoot, "src"),
+		);
+	} finally {
+		await server.close();
+	}
+});
+
+test("preserves a user configured tilde alias", async () => {
+	const appRoot = path.join(repoRoot, "apps/titanium-vite-alloy");
+	const customAliasRoot = path.join(appRoot, "custom-source-root");
+	const server = await createTitaniumTestServer(appRoot, "alloy", {
+		resolve: {
+			alias: [{ find: "~", replacement: customAliasRoot }],
+		},
+	});
+
+	try {
+		const environment = server.environments.titanium;
+		if (!environment) {
+			throw new Error("Titanium environment missing");
+		}
+
+		expect(findAliasReplacement(environment.config.resolve.alias, "~")).toBe(
+			customAliasRoot,
+		);
+	} finally {
+		await server.close();
+	}
+});
+
+test("does not resolve bare app-local Alloy imports through legacy Titanium fallback", async () => {
+	const appRoot = path.join(repoRoot, "apps/titanium-vite-alloy");
+	const server = await createTitaniumTestServer(appRoot, "alloy");
+
+	try {
+		const environment = server.environments.titanium;
+		if (!environment) {
+			throw new Error("Titanium environment missing");
+		}
+
+		await expect(
+			environment.fetchModule(
+				"app-utils",
+				path.join(appRoot, "app/controllers/index.js"),
+			),
+		).rejects.toThrow();
+	} finally {
+		await server.close();
 	}
 });
 
@@ -559,4 +659,64 @@ function expectInputRecord(value: unknown): asserts value is Record<string, unkn
 	if (!value || typeof value !== "object" || Array.isArray(value)) {
 		throw new Error("Expected build input to be an object");
 	}
+}
+
+async function createTitaniumTestServer(
+	appRoot: string,
+	projectType: "alloy" | "classic",
+	extraConfig: InlineConfig = {},
+) {
+	const previousCwd = process.cwd();
+	process.chdir(appRoot);
+
+	const bridgePlugin = {
+		name: "ti-vite-bridge",
+		api: {
+			context: {
+				command: "serve",
+				deployType: "development",
+				devServer: { origin: "http://127.0.0.1:5173" },
+				nativeModules: [],
+				platform: "ios",
+				target: "simulator",
+			},
+			reportTiApiUsage: vi.fn(),
+		},
+	};
+
+	try {
+		const config: InlineConfig = {
+			configFile: false,
+			logLevel: "silent",
+			plugins: [bridgePlugin, titanium({ projectType })],
+			root: appRoot,
+			server: { middlewareMode: true },
+			...extraConfig,
+		};
+
+		return await createServer(config);
+	} finally {
+		process.chdir(previousCwd);
+	}
+}
+
+function findAliasReplacement(aliases: unknown, aliasName: string): string | undefined {
+	if (Array.isArray(aliases)) {
+		for (const alias of aliases) {
+			if (!isRecord(alias)) continue;
+			if (alias.find === aliasName && typeof alias.replacement === "string") {
+				return alias.replacement;
+			}
+		}
+		return undefined;
+	}
+
+	if (!isRecord(aliases)) return undefined;
+
+	const replacement = aliases[aliasName];
+	return typeof replacement === "string" ? replacement : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }

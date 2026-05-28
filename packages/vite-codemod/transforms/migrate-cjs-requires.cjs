@@ -1,10 +1,14 @@
 "use strict";
 
+const fs = require("node:fs");
+const path = require("node:path");
+
 module.exports = function migrateCjsRequires(fileInfo, api, options = {}) {
   const j = api.jscodeshift;
   const root = j(fileInfo.source);
-  const registry = createImportRegistry(j, root);
+  const registry = createImportRegistry(j, root, fileInfo.path);
 
+  normalizeExistingImportDeclarations(root, j, fileInfo.path);
   migrateRequireDeclarations(root, j, registry, fileInfo.path);
   migrateRequireMembers(root, j, registry, fileInfo.path);
   migrateDirectRequires(root, j, registry, fileInfo.path);
@@ -147,7 +151,10 @@ function addImportForRequireBinding(j, registry, binding, requireInfo, comments)
   }
 
   registry.addImportDeclaration(
-    j.importDeclaration(specifiers, j.literal(requireInfo.source)),
+    j.importDeclaration(
+      specifiers,
+      j.literal(registry.normalizeSource(requireInfo.source)),
+    ),
     comments,
   );
   return true;
@@ -196,7 +203,7 @@ function migrateDirectRequires(root, j, registry, filePath) {
     });
 }
 
-function createImportRegistry(j, root) {
+function createImportRegistry(j, root, filePath) {
   const importDeclarations = [];
   const globDeclarations = [];
   const importKeys = new Map();
@@ -212,6 +219,10 @@ function createImportRegistry(j, root) {
       importDeclarations.push(declaration);
     },
 
+    normalizeSource(source) {
+      return normalizeAppLocalSource(source, filePath);
+    },
+
     ensureWholeModuleImport(source, preferredName, comments) {
       if (isJsonSource(source)) {
         return this.ensureDefaultImport(source, preferredName, comments);
@@ -221,9 +232,10 @@ function createImportRegistry(j, root) {
     },
 
     ensureNamespaceImport(source, preferredName, comments) {
+      const normalizedSource = this.normalizeSource(source);
       const key = preferredName
-        ? `namespace:${source}:${preferredName}`
-        : `namespace:${source}`;
+        ? `namespace:${normalizedSource}:${preferredName}`
+        : `namespace:${normalizedSource}`;
       const existing = importKeys.get(key);
       if (existing) return j.identifier(existing);
 
@@ -235,7 +247,7 @@ function createImportRegistry(j, root) {
       );
       const declaration = j.importDeclaration(
         [j.importNamespaceSpecifier(j.identifier(localName))],
-        j.literal(source),
+        j.literal(normalizedSource),
       );
       this.addImportDeclaration(declaration, comments);
       importKeys.set(key, localName);
@@ -243,9 +255,10 @@ function createImportRegistry(j, root) {
     },
 
     ensureDefaultImport(source, preferredName, comments) {
+      const normalizedSource = this.normalizeSource(source);
       const key = preferredName
-        ? `default:${source}:${preferredName}`
-        : `default:${source}`;
+        ? `default:${normalizedSource}:${preferredName}`
+        : `default:${normalizedSource}`;
       const existing = importKeys.get(key);
       if (existing) return j.identifier(existing);
 
@@ -257,7 +270,7 @@ function createImportRegistry(j, root) {
       );
       const declaration = j.importDeclaration(
         [j.importDefaultSpecifier(j.identifier(localName))],
-        j.literal(source),
+        j.literal(normalizedSource),
       );
       this.addImportDeclaration(declaration, comments);
       importKeys.set(key, localName);
@@ -265,7 +278,8 @@ function createImportRegistry(j, root) {
     },
 
     ensureNamedImport(source, importedName, preferredName, comments) {
-      const key = `named:${source}:${importedName}:${preferredName}`;
+      const normalizedSource = this.normalizeSource(source);
+      const key = `named:${normalizedSource}:${importedName}:${preferredName}`;
       const existing = importKeys.get(key);
       if (existing) return j.identifier(existing);
 
@@ -282,7 +296,7 @@ function createImportRegistry(j, root) {
             localName === importedName ? null : j.identifier(localName),
           ),
         ],
-        j.literal(source),
+        j.literal(normalizedSource),
       );
       this.addImportDeclaration(declaration, comments);
       importKeys.set(key, localName);
@@ -290,17 +304,18 @@ function createImportRegistry(j, root) {
     },
 
     ensureGlobMap(pattern) {
-      const existing = globKeys.get(pattern);
+      const normalizedPattern = this.normalizeSource(pattern);
+      const existing = globKeys.get(normalizedPattern);
       if (existing) return j.identifier(existing);
 
       const localName = reserveImportName(
-        `${createImportBaseName(pattern, { keepJsonPrefix: true })}Modules`,
+        `${createImportBaseName(normalizedPattern, { keepJsonPrefix: true })}Modules`,
         undefined,
         bindingCounts,
         reservedNames,
       );
-      globDeclarations.push(createGlobMapDeclaration(j, localName, pattern));
-      globKeys.set(pattern, localName);
+      globDeclarations.push(createGlobMapDeclaration(j, localName, normalizedPattern));
+      globKeys.set(normalizedPattern, localName);
       return j.identifier(localName);
     },
 
@@ -415,9 +430,10 @@ function insertHoistedDeclarations(root, j, registry) {
 }
 
 function createGlobLookupExpression(j, registry, templateRequire) {
+  const key = normalizeTemplateLiteralSource(j, registry, templateRequire.key);
   return j.memberExpression(
     registry.ensureGlobMap(templateRequire.pattern),
-    templateRequire.key,
+    key,
     true,
   );
 }
@@ -518,7 +534,7 @@ function isJsonSource(source) {
 function createImportBaseName(source, options = {}) {
   const normalizedSource =
     isJsonSource(source) && !options.keepJsonPrefix
-      ? source.replace(/^json\//, "")
+      ? source.replace(/^~\/assets\/json\//, "").replace(/^json\//, "")
       : source;
   const parts = normalizedSource
     .replace(/\*/g, "")
@@ -534,6 +550,125 @@ function createImportBaseName(source, options = {}) {
       return `${lower.slice(0, 1).toUpperCase()}${lower.slice(1)}`;
     })
     .join("");
+}
+
+function normalizeExistingImportDeclarations(root, j, filePath) {
+  root.find(j.ImportDeclaration).forEach((importPath) => {
+    const source = getStringLiteralValue(importPath.node.source);
+    if (!source) return;
+
+    importPath.node.source = j.literal(normalizeAppLocalSource(source, filePath));
+  });
+}
+
+function normalizeTemplateLiteralSource(j, registry, templateLiteral) {
+  if (templateLiteral.type !== "TemplateLiteral") return templateLiteral;
+  if (templateLiteral.quasis.length !== 2) return templateLiteral;
+
+  const prefix = templateLiteral.quasis[0]?.value.cooked;
+  const suffix = templateLiteral.quasis[1]?.value.cooked;
+  if (typeof prefix !== "string" || typeof suffix !== "string") {
+    return templateLiteral;
+  }
+
+  const normalizedPattern = registry.normalizeSource(`${prefix}*${suffix}`);
+  const starIndex = normalizedPattern.indexOf("*");
+  if (starIndex === -1) return templateLiteral;
+
+  const normalizedPrefix = normalizedPattern.slice(0, starIndex);
+  const normalizedSuffix = normalizedPattern.slice(starIndex + 1);
+  if (normalizedPrefix === prefix && normalizedSuffix === suffix) {
+    return templateLiteral;
+  }
+
+  return j.templateLiteral(
+    [
+      j.templateElement(
+        { cooked: normalizedPrefix, raw: normalizedPrefix },
+        false,
+      ),
+      j.templateElement(
+        { cooked: normalizedSuffix, raw: normalizedSuffix },
+        true,
+      ),
+    ],
+    templateLiteral.expressions,
+  );
+}
+
+function normalizeAppLocalSource(source, filePath) {
+  if (source.startsWith("~/")) return source;
+  if (source.startsWith(".") || source.startsWith("virtual:")) return source;
+  if (source.startsWith("#")) return source;
+  if (source === "alloy" || source.startsWith("alloy/")) return source;
+
+  const appRoot = findAppRoot(filePath);
+  if (!appRoot) return source;
+
+  if (source.startsWith("json/")) {
+    const resolved = resolveAppSource(appRoot, "assets", source);
+    return resolved ?? source;
+  }
+
+  if (source.startsWith("/json/")) {
+    const resolved = resolveAppSource(appRoot, "assets", source.slice(1));
+    return resolved ?? source;
+  }
+
+  if (source.startsWith("/")) {
+    const resolved = resolveAppSource(appRoot, "lib", source.slice(1));
+    return resolved ?? source;
+  }
+
+  if (isBareAppCandidate(source)) {
+    return (
+      resolveAppSource(appRoot, "lib", source) ??
+      resolveAppSource(appRoot, "assets", source) ??
+      source
+    );
+  }
+
+  return source;
+}
+
+function findAppRoot(filePath) {
+  const normalized = path.resolve(filePath);
+  const parts = normalized.split(path.sep);
+  const appIndex = parts.lastIndexOf("app");
+  if (appIndex === -1) return null;
+
+  return parts.slice(0, appIndex + 1).join(path.sep);
+}
+
+function isBareAppCandidate(source) {
+  return !source.startsWith("@") && !source.includes(":");
+}
+
+function resolveAppSource(appRoot, aliasSegment, source) {
+  const candidate = path.join(appRoot, aliasSegment, source);
+  if (!sourceExists(candidate)) return null;
+
+  return `~/${path.posix.join(aliasSegment, source.replace(/^\/+/, ""))}`;
+}
+
+function sourceExists(candidate) {
+  if (candidate.includes("*")) {
+    const wildcardIndex = candidate.indexOf("*");
+    const prefix = candidate.slice(0, wildcardIndex);
+    const directory = prefix.endsWith(path.sep) ? prefix : path.dirname(prefix);
+    return fs.existsSync(directory);
+  }
+
+  if (fs.existsSync(candidate)) return true;
+
+  const extensions = [".js", ".mjs", ".cjs", ".ts", ".json"];
+  for (const extension of extensions) {
+    if (fs.existsSync(`${candidate}${extension}`)) return true;
+  }
+
+  return extensions.some((extension) =>
+    fs.existsSync(path.join(candidate, `index${extension}`)),
+  );
 }
 
 function findImportInsertIndex(body) {

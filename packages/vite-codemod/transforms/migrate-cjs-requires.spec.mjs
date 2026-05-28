@@ -1,9 +1,17 @@
 import { createRequire } from "node:module";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
 const require = createRequire(import.meta.url);
 const jscodeshift = require("jscodeshift");
 const transform = require("./migrate-cjs-requires.cjs");
+const fixtureRoot = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "fixtures/alloy-app",
+);
+const appControllerPath = path.join(fixtureRoot, "app/controllers/index.js");
+const appUtilsPath = path.join(fixtureRoot, "app/lib/app-utils.js");
 
 function run(source, options = {}, path = "app/controllers/index.js") {
   return transform(
@@ -22,15 +30,51 @@ describe("migrate-cjs-requires", () => {
 
   test("converts static JSON require declarations to default imports", () => {
     expect(
-      run("const countries = require('json/countries/en.json');\ncountries.DE;\n"),
+      run(
+        "const countries = require('json/countries/en.json');\ncountries.DE;\n",
+        {},
+        appControllerPath,
+      ),
     ).toBe(
-      'import countries from "json/countries/en.json";\ncountries.DE;\n',
+      'import countries from "~/assets/json/countries/en.json";\ncountries.DE;\n',
+    );
+  });
+
+  test("rewrites existing app-local JSON imports to alias imports", () => {
+    expect(
+      run(
+        'import countries from "json/countries/en.json";\ncountries.DE;\n',
+        {},
+        appControllerPath,
+      ),
+    ).toBe(
+      'import countries from "~/assets/json/countries/en.json";\ncountries.DE;\n',
     );
   });
 
   test("converts default member requires to default imports", () => {
-    expect(run("const Api = require('/api').default;\nApi.fetch();\n")).toBe(
-      'import Api from "/api";\nApi.fetch();\n',
+    expect(
+      run("const Api = require('/api').default;\nApi.fetch();\n", {}, appControllerPath),
+    ).toBe(
+      'import Api from "~/lib/api";\nApi.fetch();\n',
+    );
+  });
+
+  test("rewrites app-local lib imports to alias imports", () => {
+    expect(
+      run("const utils = require('app-utils');\nutils.setup();\n", {}, appControllerPath),
+    ).toBe(
+      'import * as utils from "~/lib/app-utils";\nutils.setup();\n',
+    );
+  });
+
+  test("leaves package, native, and builtin bare imports unchanged", () => {
+    expect(
+      run(
+        "const path = require('path');\nconst Ability = require('@casl/ability');\nconst map = require('ti.map');\nconst analytics = require('firebase.analytics');\n",
+      ),
+    ).toBe(
+      'import * as path from "path";\nimport * as Ability from "@casl/ability";\nimport * as map from "ti.map";\nimport * as analytics from "firebase.analytics";\n',
     );
   });
 
@@ -98,8 +142,8 @@ describe("migrate-cjs-requires", () => {
 
   test("converts inline default member calls", () => {
     expect(
-      run("require('/api').default.postAppLog(message);\n"),
-    ).toBe('import api from "/api";\napi.postAppLog(message);\n');
+      run("require('/api').default.postAppLog(message);\n", {}, appControllerPath),
+    ).toBe('import api from "~/lib/api";\napi.postAppLog(message);\n');
   });
 
   test("converts writable inline module properties", () => {
@@ -124,9 +168,11 @@ describe("migrate-cjs-requires", () => {
     expect(
       run(
         "function load() {\n\tglobal.AppsFlyer = require('ti.appsflyer');\n\tcountriesMap = require('json/countries/en.json');\n\tthis.categories = require('json/expense_categories.json');\n}\n",
+        {},
+        appControllerPath,
       ),
     ).toBe(
-      'import * as tiAppsflyer from "ti.appsflyer";\nimport countriesEnJson from "json/countries/en.json";\nimport expenseCategoriesJson from "json/expense_categories.json";\nfunction load() {\n\tglobal.AppsFlyer = tiAppsflyer;\n\tcountriesMap = countriesEnJson;\n\tthis.categories = expenseCategoriesJson;\n}\n',
+      'import * as tiAppsflyer from "ti.appsflyer";\nimport countriesEnJson from "~/assets/json/countries/en.json";\nimport expenseCategoriesJson from "~/assets/json/expense_categories.json";\nfunction load() {\n\tglobal.AppsFlyer = tiAppsflyer;\n\tcountriesMap = countriesEnJson;\n\tthis.categories = expenseCategoriesJson;\n}\n',
     );
   });
 
@@ -140,9 +186,13 @@ describe("migrate-cjs-requires", () => {
 
   test("converts return requires", () => {
     expect(
-      run("function countries() {\n\treturn require('json/countries/en.json');\n}\n"),
+      run(
+        "function countries() {\n\treturn require('json/countries/en.json');\n}\n",
+        {},
+        appControllerPath,
+      ),
     ).toBe(
-      'import countriesEnJson from "json/countries/en.json";\nfunction countries() {\n\treturn countriesEnJson;\n}\n',
+      'import countriesEnJson from "~/assets/json/countries/en.json";\nfunction countries() {\n\treturn countriesEnJson;\n}\n',
     );
   });
 
@@ -156,9 +206,13 @@ describe("migrate-cjs-requires", () => {
 
   test("converts bounded JSON template requires to eager glob lookups", () => {
     expect(
-      run("const countries = require(`json/countries/${locale}.json`);\n"),
+      run(
+        "const countries = require(`json/countries/${locale}.json`);\n",
+        {},
+        appUtilsPath,
+      ),
     ).toBe(
-      'const jsonCountriesJsonModules = import.meta.glob("json/countries/*.json", {\n  eager: true,\n  import: "default"\n});\n\nconst countries = jsonCountriesJsonModules[`json/countries/${locale}.json`];\n',
+      'const assetsJsonCountriesJsonModules = import.meta.glob("~/assets/json/countries/*.json", {\n  eager: true,\n  import: "default"\n});\n\nconst countries = assetsJsonCountriesJsonModules[`~/assets/json/countries/${locale}.json`];\n',
     );
   });
 
