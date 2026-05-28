@@ -81,6 +81,16 @@ describe("migrate-cjs-requires", () => {
     );
   });
 
+  test("reuses duplicate scoped require binding names when hoisting imports", () => {
+    expect(
+      run(
+        "function showTooltip() {\n\tconst TiTooltip = require('ti.tooltip');\n\tTiTooltip.show();\n}\nfunction hideActiveTooltip() {\n\tconst TiTooltip = require('ti.tooltip');\n\tTiTooltip.hideActiveTooltip();\n}\n",
+      ),
+    ).toBe(
+      'import TiTooltip from "ti.tooltip";\nfunction showTooltip() {\n    TiTooltip.show();\n}\nfunction hideActiveTooltip() {\n    TiTooltip.hideActiveTooltip();\n}\n',
+    );
+  });
+
   test("converts named member requires to named imports", () => {
     expect(
       run(

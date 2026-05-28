@@ -253,7 +253,7 @@ function createImportRegistry(j, root, filePath) {
   const globDeclarations = [];
   const importKeys = new Map();
   const globKeys = new Map();
-  const bindingCounts = collectBindingCounts(root, j);
+  const bindingCounts = collectBindingCounts(root, j, filePath);
   const reservedNames = new Set();
 
   return {
@@ -378,7 +378,7 @@ function createImportRegistry(j, root, filePath) {
   };
 }
 
-function collectBindingCounts(root, j) {
+function collectBindingCounts(root, j, filePath) {
   const counts = new Map();
   const add = (name) => {
     counts.set(name, (counts.get(name) ?? 0) + 1);
@@ -390,7 +390,12 @@ function collectBindingCounts(root, j) {
   });
   root.find(j.ImportDefaultSpecifier).forEach((path) => add(path.node.local.name));
   root.find(j.ImportNamespaceSpecifier).forEach((path) => add(path.node.local.name));
-  root.find(j.VariableDeclarator).forEach((path) => collectPatternNames(path.node.id, add));
+  root.find(j.VariableDeclaration).forEach((path) => {
+    for (const declaration of path.node.declarations) {
+      if (isRemovedRequireDeclaration(declaration, path, filePath)) continue;
+      collectPatternNames(declaration.id, add);
+    }
+  });
   root.find(j.FunctionDeclaration).forEach((path) => {
     if (path.node.id) add(path.node.id.name);
     for (const param of path.node.params) collectPatternNames(param, add);
@@ -410,6 +415,69 @@ function collectBindingCounts(root, j) {
   });
 
   return counts;
+}
+
+function isRemovedRequireDeclaration(declaration, declarationPath, filePath) {
+  const source = getStaticRequireSource(declaration.init);
+  if (source) {
+    if (
+      declaration.id.type === "Identifier" &&
+      shouldMigrateGuardedNativeRequireToDynamicImport(
+        declarationPath,
+        source,
+        filePath,
+      )
+    ) {
+      return false;
+    }
+    if (isGuardedPotentialNativeRequire(declarationPath, source, filePath)) {
+      return false;
+    }
+    return isRemovedRequireBinding(declaration.id, { kind: "whole", source });
+  }
+
+  const memberRequire = getStaticRequireMember(declaration.init);
+  if (!memberRequire) return false;
+  if (
+    shouldMigrateGuardedNativeRequireToDynamicImport(
+      declarationPath,
+      memberRequire.source,
+      filePath,
+    )
+  ) {
+    return false;
+  }
+  if (isGuardedPotentialNativeRequire(declarationPath, memberRequire.source, filePath)) {
+    return false;
+  }
+  if (
+    declaration.id.type === "Identifier" &&
+    memberRequire.member !== "default" &&
+    shouldUseRequireValueImport(
+      memberRequire.source,
+      normalizeAppLocalSource(memberRequire.source, filePath),
+    )
+  ) {
+    return false;
+  }
+
+  return isRemovedRequireBinding(declaration.id, {
+    kind: "member",
+    ...memberRequire,
+  });
+}
+
+function isRemovedRequireBinding(binding, requireInfo) {
+  if (binding.type === "Identifier") {
+    if (requireInfo.kind === "whole") return true;
+    return !isJsonSource(requireInfo.source);
+  }
+
+  return (
+    binding.type === "ObjectPattern" &&
+    requireInfo.kind === "whole" &&
+    !isJsonSource(requireInfo.source)
+  );
 }
 
 function collectPatternNames(pattern, add) {
@@ -445,7 +513,7 @@ function reserveImportName(baseName, preferredName, bindingCounts, reservedNames
   if (
     preferredName &&
     !reservedNames.has(preferredName) &&
-    (bindingCounts.get(preferredName) ?? 0) <= 1
+    (bindingCounts.get(preferredName) ?? 0) === 0
   ) {
     reservedNames.add(preferredName);
     return preferredName;
