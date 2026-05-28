@@ -76,6 +76,27 @@ promise around the existing runtime `require('/alloy/controllers/' + name)` path
 because production already emits enumerated Alloy runtime entries at those
 Titanium module paths.
 
+## Sync Boundary
+
+The async boundary belongs before runtime controller construction, not inside the
+Alloy controller lifecycle.
+
+XML-generated child controllers and widgets are part of parent controller
+construction. They are declared in Alloy XML through nodes such as static
+`<Require>` and `<Widget>`, then compiled into parent-constructor UI assembly
+code. That generated code may immediately call child APIs such as `getViewEx()`
+or insert the child view into a parent `Tab`, `Window`, or `View`. Those
+dependencies must remain synchronously available, so static ESM imports are the
+right model for XML-generated structure.
+
+Authored runtime controller creation is different. Calls in handwritten
+JavaScript control flow, such as event handlers, deep-link handlers, login
+callbacks, and navigation helpers, are the target of this async migration.
+
+Alloy controller instances remain normal synchronous controller instances after
+they have been imported and constructed. APIs such as `getView()`, `getViewEx()`,
+`addTopLevelView()`, and `updateViews()` should not become async.
+
 ## Compiler And Plugin Behavior
 
 The Alloy compiler may continue emitting static ESM imports for XML-generated
