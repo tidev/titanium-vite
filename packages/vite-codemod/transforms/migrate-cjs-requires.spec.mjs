@@ -24,8 +24,10 @@ function run(source, options = {}, path = "app/controllers/index.js") {
 
 describe("migrate-cjs-requires", () => {
   test("converts top-level static require declarations to namespace imports", () => {
-    expect(run("const XP = require('xp.ui');\nXP.createView();\n")).toBe(
-      'import * as XP from "xp.ui";\nXP.createView();\n',
+    expect(
+      run("const XP = require('xp.ui');\nXP.createView();\n", {}, appControllerPath),
+    ).toBe(
+      'import * as XP from "~/lib/xp.ui";\nXP.createView();\n',
     );
   });
 
@@ -69,20 +71,24 @@ describe("migrate-cjs-requires", () => {
     );
   });
 
-  test("leaves package, native, and builtin bare imports unchanged", () => {
+  test("converts package, native, and builtin whole-module requires to default imports", () => {
     expect(
       run(
         "const path = require('path');\nconst Ability = require('@casl/ability');\nconst map = require('ti.map');\nconst analytics = require('firebase.analytics');\n",
       ),
     ).toBe(
-      'import * as path from "path";\nimport * as Ability from "@casl/ability";\nimport * as map from "ti.map";\nimport * as analytics from "firebase.analytics";\n',
+      'import path from "path";\nimport Ability from "@casl/ability";\nimport map from "ti.map";\nimport analytics from "firebase.analytics";\n',
     );
   });
 
   test("converts named member requires to named imports", () => {
     expect(
-      run("const createButton = require('xp.ui').createActionButton;\n"),
-    ).toBe('import { createActionButton as createButton } from "xp.ui";\n');
+      run(
+        "const createButton = require('xp.ui').createActionButton;\n",
+        {},
+        appControllerPath,
+      ),
+    ).toBe('import { createActionButton as createButton } from "~/lib/xp.ui";\n');
   });
 
   test("converts object destructuring requires to named imports", () => {
@@ -103,7 +109,7 @@ describe("migrate-cjs-requires", () => {
 
   test("converts return requires by default", () => {
     expect(run("function load() {\n\treturn require('ti.calendar');\n}\n")).toBe(
-      'import * as tiCalendar from "ti.calendar";\nfunction load() {\n\treturn tiCalendar;\n}\n',
+      'import tiCalendar from "ti.calendar";\nfunction load() {\n\treturn tiCalendar;\n}\n',
     );
   });
 
@@ -135,9 +141,13 @@ describe("migrate-cjs-requires", () => {
 
   test("converts inline namespace member calls", () => {
     expect(
-      run("require('xp.ui').createNavigationWindow(args);\n"),
+      run(
+        "require('xp.ui').createNavigationWindow(args);\n",
+        {},
+        appControllerPath,
+      ),
     ).toBe(
-      'import * as xpUi from "xp.ui";\nxpUi.createNavigationWindow(args);\n',
+      'import * as xpUi from "~/lib/xp.ui";\nxpUi.createNavigationWindow(args);\n',
     );
   });
 
@@ -151,7 +161,7 @@ describe("migrate-cjs-requires", () => {
     expect(
       run("require('ti.animation').newRenderingEngineEnabled = true;\n"),
     ).toBe(
-      'import * as tiAnimation from "ti.animation";\ntiAnimation.newRenderingEngineEnabled = true;\n',
+      'import tiAnimation from "ti.animation";\ntiAnimation.newRenderingEngineEnabled = true;\n',
     );
   });
 
@@ -161,7 +171,7 @@ describe("migrate-cjs-requires", () => {
         "function boot() {\n\tconst ContextSDK = require('ti.contextsdk');\n\tContextSDK.start();\n}\n",
       ),
     ).toBe(
-      'import * as ContextSDK from "ti.contextsdk";\nfunction boot() {\n    ContextSDK.start();\n}\n',
+      'import ContextSDK from "ti.contextsdk";\nfunction boot() {\n    ContextSDK.start();\n}\n',
     );
   });
 
@@ -173,7 +183,7 @@ describe("migrate-cjs-requires", () => {
         appControllerPath,
       ),
     ).toBe(
-      'import * as tiAppsflyer from "ti.appsflyer";\nimport countriesEnJson from "~/assets/json/countries/en.json";\nimport expenseCategoriesJson from "~/assets/json/expense_categories.json";\nfunction load() {\n\tglobal.AppsFlyer = tiAppsflyer;\n\tcountriesMap = countriesEnJson;\n\tthis.categories = expenseCategoriesJson;\n}\n',
+      'import tiAppsflyer from "ti.appsflyer";\nimport countriesEnJson from "~/assets/json/countries/en.json";\nimport expenseCategoriesJson from "~/assets/json/expense_categories.json";\nfunction load() {\n\tglobal.AppsFlyer = tiAppsflyer;\n\tcountriesMap = countriesEnJson;\n\tthis.categories = expenseCategoriesJson;\n}\n',
     );
   });
 
@@ -181,7 +191,7 @@ describe("migrate-cjs-requires", () => {
     expect(
       run("global.AvImageview = require('av.imageview');\n"),
     ).toBe(
-      'import * as avImageview from "av.imageview";\nglobal.AvImageview = avImageview;\n',
+      'import avImageview from "av.imageview";\nglobal.AvImageview = avImageview;\n',
     );
   });
 
@@ -219,17 +229,25 @@ describe("migrate-cjs-requires", () => {
 
   test("reuses imports for repeated inline requires", () => {
     expect(
-      run("require('xp.ui').createView();\nrequire('xp.ui').createLabel();\n"),
+      run(
+        "require('xp.ui').createView();\nrequire('xp.ui').createLabel();\n",
+        {},
+        appControllerPath,
+      ),
     ).toBe(
-      'import * as xpUi from "xp.ui";\nxpUi.createView();\nxpUi.createLabel();\n',
+      'import * as xpUi from "~/lib/xp.ui";\nxpUi.createView();\nxpUi.createLabel();\n',
     );
   });
 
   test("avoids generated binding collisions", () => {
     expect(
-      run("const xpUi = createExisting();\nrequire('xp.ui').createView();\n"),
+      run(
+        "const xpUi = createExisting();\nrequire('xp.ui').createView();\n",
+        {},
+        appControllerPath,
+      ),
     ).toBe(
-      'import * as xpUiModule from "xp.ui";\nconst xpUi = createExisting();\nxpUiModule.createView();\n',
+      'import * as xpUiModule from "~/lib/xp.ui";\nconst xpUi = createExisting();\nxpUiModule.createView();\n',
     );
   });
 
@@ -241,13 +259,33 @@ describe("migrate-cjs-requires", () => {
     );
   });
 
-  test("leaves guarded native module requires in shared code unchanged", () => {
+  test("converts guarded native module requires in shared async functions to dynamic imports", () => {
+    expect(
+      run(
+        "async function ensure() {\n\tif (OS_ANDROID) {\n\t\tconst PlayServices = require('ti.playservices');\n\t\tPlayServices.isAvailable();\n\t}\n}\n",
+      ),
+    ).toBe(
+      'async function ensure() {\n\tif (OS_ANDROID) {\n\t\tconst PlayServices = (await import("ti.playservices")).default;\n\t\tPlayServices.isAvailable();\n\t}\n}\n',
+    );
+  });
+
+  test("leaves guarded native module requires in shared sync code unchanged", () => {
     expect(
       run(
         "if (OS_ANDROID) {\n\tconst PlayServices = require('ti.playservices');\n\tPlayServices.isAvailable();\n}\n",
       ),
     ).toBe(
       "if (OS_ANDROID) {\n\tconst PlayServices = require('ti.playservices');\n\tPlayServices.isAvailable();\n}\n",
+    );
+  });
+
+  test("leaves guarded native module requires in nested sync callbacks unchanged", () => {
+    expect(
+      run(
+        "async function ensure() {\n\trequest(() => {\n\t\tif (OS_ANDROID) {\n\t\t\tconst PlayServices = require('ti.playservices');\n\t\t}\n\t});\n}\n",
+      ),
+    ).toBe(
+      "async function ensure() {\n\trequest(() => {\n\t\tif (OS_ANDROID) {\n\t\t\tconst PlayServices = require('ti.playservices');\n\t\t}\n\t});\n}\n",
     );
   });
 
@@ -283,7 +321,7 @@ describe("migrate-cjs-requires", () => {
         "app/lib/android/play-services.js",
       ),
     ).toBe(
-      'import * as PlayServices from "ti.playservices";\nif (OS_ANDROID) {\n    PlayServices.isAvailable();\n}\n',
+      'import PlayServices from "ti.playservices";\nif (OS_ANDROID) {\n    PlayServices.isAvailable();\n}\n',
     );
   });
 
@@ -306,6 +344,17 @@ describe("migrate-cjs-requires", () => {
       ),
     ).toThrow(
       "Unsupported CommonJS guarded native module require() in app/controllers/index.js:2.",
+    );
+  });
+
+  test("does not fail on guarded native module requires in shared async functions", () => {
+    expect(
+      run(
+        "async function ensure() {\n\tif (OS_ANDROID) {\n\t\tconst PlayServices = require('ti.playservices');\n\t}\n}\n",
+        { failOnUnsupported: "true" },
+      ),
+    ).toBe(
+      'async function ensure() {\n\tif (OS_ANDROID) {\n\t\tconst PlayServices = (await import("ti.playservices")).default;\n\t}\n}\n',
     );
   });
 

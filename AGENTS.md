@@ -48,6 +48,7 @@ Vite-based dev environment + plugin set for the Titanium SDK. Experimental, acti
 | Lambus Titanium App | `../lambus-titanium` |
 
 Use the `vite-build` branch in `../lambus-titanium` when validating Vite-specific behavior against the Lambus app.
+Always evaluate Lambus in both Titanium Vite modes before calling a runtime issue resolved: normal build/run via `ti build -p ios` and serve mode via `ti serve ios`. Watch startup logs in both modes and capture a simulator screenshot for the final observed state.
 
 ## CONVENTIONS
 - This repo is pre-release. Prefer the cleaner long-term architecture over

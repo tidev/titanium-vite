@@ -68,6 +68,17 @@ function createDeclarationReplacement(
 
   const source = getStaticRequireSource(declaration.init);
   if (source) {
+    if (
+      declaration.id.type === "Identifier" &&
+      shouldMigrateGuardedNativeRequireToDynamicImport(
+        declarationPath,
+        source,
+        filePath,
+      )
+    ) {
+      declaration.init = createAwaitedDynamicDefaultImport(j, source);
+      return "keep";
+    }
     if (isGuardedPotentialNativeRequire(declarationPath, source, filePath)) {
       return "keep";
     }
@@ -84,7 +95,31 @@ function createDeclarationReplacement(
 
   const memberRequire = getStaticRequireMember(declaration.init);
   if (memberRequire) {
+    if (
+      shouldMigrateGuardedNativeRequireToDynamicImport(
+        declarationPath,
+        memberRequire.source,
+        filePath,
+      )
+    ) {
+      declaration.init = j.memberExpression(
+        createAwaitedDynamicDefaultImport(j, memberRequire.source),
+        j.identifier(memberRequire.member),
+      );
+      return "keep";
+    }
     if (isGuardedPotentialNativeRequire(declarationPath, memberRequire.source, filePath)) {
+      return "keep";
+    }
+    if (
+      declaration.id.type === "Identifier" &&
+      memberRequire.member !== "default" &&
+      registry.shouldUseRequireValueImport(memberRequire.source)
+    ) {
+      declaration.init = j.memberExpression(
+        registry.ensureDefaultImport(memberRequire.source),
+        j.identifier(memberRequire.member),
+      );
       return "keep";
     }
     return addImportForRequireBinding(
@@ -109,7 +144,7 @@ function addImportForRequireBinding(j, registry, binding, requireInfo, comments)
         return true;
       }
 
-      registry.ensureNamespaceImport(requireInfo.source, binding.name, comments);
+      registry.ensureWholeModuleImport(requireInfo.source, binding.name, comments);
       return true;
     }
 
@@ -166,6 +201,10 @@ function migrateRequireMembers(root, j, registry, filePath) {
     const source = getStaticRequireSource(node.object);
     if (!source) return;
     if (node.computed) return;
+    if (shouldMigrateGuardedNativeRequireToDynamicImport(path, source, filePath)) {
+      node.object = createAwaitedDynamicDefaultImport(j, source);
+      return;
+    }
     if (isGuardedPotentialNativeRequire(path, source, filePath)) return;
 
     const member = getPropertyName(node.property);
@@ -176,7 +215,9 @@ function migrateRequireMembers(root, j, registry, filePath) {
       return;
     }
 
-    node.object = registry.ensureNamespaceImport(source);
+    node.object = registry.shouldUseRequireValueImport(source)
+      ? registry.ensureDefaultImport(source)
+      : registry.ensureNamespaceImport(source);
   });
 }
 
@@ -197,6 +238,10 @@ function migrateDirectRequires(root, j, registry, filePath) {
       const source = getStaticRequireSource(path.node);
       if (!source) return;
       if (!isDirectRequireReplacementPosition(path)) return;
+      if (shouldMigrateGuardedNativeRequireToDynamicImport(path, source, filePath)) {
+        j(path).replaceWith(() => createAwaitedDynamicDefaultImport(j, source));
+        return;
+      }
       if (isGuardedPotentialNativeRequire(path, source, filePath)) return;
 
       j(path).replaceWith(() => registry.ensureWholeModuleImport(source));
@@ -228,7 +273,15 @@ function createImportRegistry(j, root, filePath) {
         return this.ensureDefaultImport(source, preferredName, comments);
       }
 
+      if (this.shouldUseRequireValueImport(source)) {
+        return this.ensureDefaultImport(source, preferredName, comments);
+      }
+
       return this.ensureNamespaceImport(source, preferredName, comments);
+    },
+
+    shouldUseRequireValueImport(source) {
+      return shouldUseRequireValueImport(source, this.normalizeSource(source));
     },
 
     ensureNamespaceImport(source, preferredName, comments) {
@@ -463,6 +516,21 @@ function createGlobMapDeclaration(j, bindingName, pattern) {
   ]);
 }
 
+function createAwaitedDynamicDefaultImport(j, source) {
+  return j.memberExpression(
+    j.awaitExpression(createDynamicImportExpression(j, source)),
+    j.identifier("default"),
+  );
+}
+
+function createDynamicImportExpression(j, source) {
+  return {
+    type: "CallExpression",
+    callee: { type: "Import" },
+    arguments: [j.literal(source)],
+  };
+}
+
 function getStaticRequireSource(node) {
   if (!node || node.type !== "CallExpression") return null;
   if (node.callee.type !== "Identifier" || node.callee.name !== "require") {
@@ -529,6 +597,19 @@ function getStringLiteralValue(node) {
 
 function isJsonSource(source) {
   return source.endsWith(".json");
+}
+
+function shouldUseRequireValueImport(source, normalizedSource) {
+  if (source !== normalizedSource) return false;
+  if (normalizedSource.startsWith("~/")) return false;
+  if (normalizedSource.startsWith(".") || normalizedSource.startsWith("/")) {
+    return false;
+  }
+  if (normalizedSource === "alloy" || normalizedSource.startsWith("alloy/")) {
+    return false;
+  }
+
+  return true;
 }
 
 function createImportBaseName(source, options = {}) {
@@ -798,6 +879,13 @@ function isGuardedPotentialNativeRequire(path, source, filePath) {
   );
 }
 
+function shouldMigrateGuardedNativeRequireToDynamicImport(path, source, filePath) {
+  return (
+    isGuardedPotentialNativeRequire(path, source, filePath) &&
+    isInsideAsyncFunction(path)
+  );
+}
+
 function isResolvableAppLocalSource(source, filePath) {
   if (source.startsWith("~/")) return true;
   return normalizeAppLocalSource(source, filePath) !== source;
@@ -825,6 +913,28 @@ function isUnderPlatformGuard(path) {
     current = current.parent;
   }
   return false;
+}
+
+function isInsideAsyncFunction(path) {
+  let current = path.parent;
+  while (current?.node) {
+    if (isFunctionLikeNode(current.node)) {
+      return current.node.async === true;
+    }
+    current = current.parent;
+  }
+  return false;
+}
+
+function isFunctionLikeNode(node) {
+  return (
+    node.type === "FunctionDeclaration" ||
+    node.type === "FunctionExpression" ||
+    node.type === "ArrowFunctionExpression" ||
+    node.type === "ObjectMethod" ||
+    node.type === "ClassMethod" ||
+    node.type === "ClassPrivateMethod"
+  );
 }
 
 function containsPlatformConstant(node) {

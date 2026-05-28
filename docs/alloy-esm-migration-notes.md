@@ -112,8 +112,10 @@ Base notes for a general Alloy ESM migration guide. Keep concise.
   ```
 - If `exports.name = ...` would collide with an existing local or imported `name`, the codemod fails that file instead of inventing a helper alias. Rename the existing binding or migrate that export manually so the public export name stays intentional.
 - The walker skips generated/dependency directories such as `Resources`, `build`, `dist`, `modules`, `node_modules`, `plugins`, and `references`.
-- `migrate-cjs-requires` rewrites safe static `require()` usages to ESM imports, including top-level and nested declarations, inline member access, assignments, return values, call arguments, and bounded JSON template requires backed by eager `import.meta.glob()` maps. Platform-conditional native module requires in shared code are left for manual wrappers or app abstractions. Unsupported CommonJS can be audited with `--fail-on-unsupported=true`.
+- `migrate-cjs-requires` rewrites safe static `require()` usages to ESM imports, including top-level and nested declarations, inline member access, assignments, return values, call arguments, and bounded JSON template requires backed by eager `import.meta.glob()` maps. Platform-guarded native module requires in shared code become dynamic ESM imports only when the nearest containing function is already `async`; sync cases are left for manual wrappers or app abstractions. Unsupported CommonJS can be audited with `--fail-on-unsupported=true`.
 - `migrate-cjs-requires` rewrites resolvable app-local Titanium bare paths to the Vite-native `~` app-root alias. For Alloy, `~` points at `app/`, so legacy paths such as `json/countries/en.json`, `json/countries/*.json`, and `app-utils` become `~/assets/json/countries/en.json`, `~/assets/json/countries/*.json`, and `~/lib/app-utils`.
+- `migrate-cjs-requires` emits default imports for package, builtin, and Titanium native whole-module requires so the generated code keeps the original runtime `require()` value. App-local whole-module requires still become namespace imports.
+- Current codemod classification is path-based, not export-shape-aware. A resolvable app-local whole-module require is assumed to target named ESM exports and becomes a namespace import. That can break default-like value usage such as calling, constructing, returning, or assigning the required module object. Future codemod hardening should combine source classification, target export analysis, and local usage: namespace imports for member-only named-export access, default imports for default-only modules, and strict-mode failures for ambiguous app-local value usage.
 - `migrate-widget-wpath-requires` rewrites top-level `const Module = require(WPATH("module"))` under `app/widgets/<id>/controllers/` to `import * as Module from "/alloy/widgets/<id>/lib/module"`. This belongs in codemods, not in Alloy DevKit runtime/compiler compatibility transforms.
 
 ## Import Specifiers
@@ -122,7 +124,7 @@ Base notes for a general Alloy ESM migration guide. Keep concise.
 - Prefer bare Alloy imports such as `alloy/underscore`.
 - Avoid new leading-slash Alloy imports such as `/alloy/underscore` in migrated
   app source.
-- Prefer static ESM imports for Titanium native modules used from app ESM source. Legacy `require("native.module")` inside app helpers can still bypass Vite's module graph and may behave differently from static imports.
+- Prefer static ESM imports for Titanium native modules used from app ESM source when the module is available on every target platform that can load the file. Use guarded dynamic `await import("native.module")` inside existing async functions for platform-only native modules in shared source.
 - App-authored JavaScript should use Vite-native app-local imports such as `~/lib/xp.ui`. Alloy XML can keep app-local module ids such as `module="xp.ui"`; the Vite Alloy compiler normalizes those generated imports when the matching `app/lib` module exists.
 
 ## Known Follow-Up

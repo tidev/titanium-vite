@@ -54,9 +54,11 @@ The codemod currently handles:
   `` require(`json/countries/${locale}.json`) `` via eager
   `import.meta.glob()` maps
 
-JSON requires are migrated to default imports. Other whole-module requires are migrated to namespace imports to preserve object-style member access.
+JSON requires are migrated to default imports. Resolvable app-local whole-module requires are migrated to namespace imports so named ESM exports remain accessible. Package, builtin, and Titanium native whole-module requires are migrated to default imports because that preserves the runtime `require()` value.
 
-Platform-conditional native module requires are intentionally not auto-rewritten from shared code. For example, `OS_IOS ? require("a") : require("b")` and `if (OS_ANDROID) require("ti.playservices")` need a platform-specific wrapper or an explicit app abstraction.
+Platform-guarded native module requires in shared code are migrated to dynamic ESM imports only when the nearest containing function is already `async`. For example, `if (OS_ANDROID) { const PlayServices = require("ti.playservices"); }` becomes `const PlayServices = (await import("ti.playservices")).default` inside an async function. Platform conditionals outside async functions, including `OS_IOS ? require("a") : require("b")`, need a platform-specific wrapper or an explicit app abstraction.
+
+App-local whole-module requires are currently classified by path, not by export shape or usage. A resolvable app-local module is treated as migrated ESM and rewritten to a namespace import. This preserves member access such as `module.createView()`, but can be wrong when the old required value is called, constructed, returned, or assigned as a default-like value. Future hardening should inspect the target module exports and local usage: use namespace imports for member-only named-export access, use default imports for default-only modules, and fail in audit mode for ambiguous app-local whole-module value usage.
 
 By default, unsupported CommonJS usage is left unchanged so migration can be applied incrementally. Use `--fail-on-unsupported=true` during audits to fail files that still contain unsupported `require()`, `exports.*`, or `module.exports` syntax after safe rewrites. Diagnostics classify dynamic requires, platform conditional requires, guarded native module requires, and computed require members where possible. The CLI automatically enables jscodeshift's `--fail-on-error` for that audit mode.
 
