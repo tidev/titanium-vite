@@ -3,32 +3,12 @@
 module.exports = function migrateCjsRequires(fileInfo, api, options = {}) {
   const j = api.jscodeshift;
   const root = j(fileInfo.source);
-  const imports = [];
+  const registry = createImportRegistry(j, root);
 
-  root.find(j.Program).forEach((programPath) => {
-    const body = programPath.node.body;
-    const remainingBody = [];
-
-    for (const statement of body) {
-      const importDeclaration = createImportFromRequireDeclaration(j, statement);
-      if (importDeclaration) {
-        importDeclaration.comments = statement.comments;
-        imports.push(importDeclaration);
-        continue;
-      }
-
-      remainingBody.push(statement);
-    }
-
-    if (imports.length === 0) return;
-
-    const insertIndex = findImportInsertIndex(remainingBody);
-    programPath.node.body = [
-      ...remainingBody.slice(0, insertIndex),
-      ...imports,
-      ...remainingBody.slice(insertIndex),
-    ];
-  });
+  migrateRequireDeclarations(root, j, registry, fileInfo.path);
+  migrateRequireMembers(root, j, registry, fileInfo.path);
+  migrateDirectRequires(root, j, registry, fileInfo.path);
+  insertHoistedDeclarations(root, j, registry);
 
   if (isFailOnUnsupportedEnabled(options)) {
     failOnUnsupportedCommonJs(root, j, fileInfo.path);
@@ -39,50 +19,122 @@ module.exports = function migrateCjsRequires(fileInfo, api, options = {}) {
 
 module.exports.parser = "babel";
 
-function createImportFromRequireDeclaration(j, statement) {
-  if (statement.type !== "VariableDeclaration") return null;
-  if (statement.declarations.length !== 1) return null;
+function migrateRequireDeclarations(root, j, registry, filePath) {
+  root.find(j.VariableDeclaration).forEach((path) => {
+    const statementComments = path.node.comments;
+    const remainingDeclarations = [];
 
-  const declaration = statement.declarations[0];
-  if (!declaration) return null;
+    for (const declaration of path.node.declarations) {
+      const replacement = createDeclarationReplacement(
+        j,
+        declaration,
+        registry,
+        filePath,
+        path,
+        statementComments,
+      );
+      if (replacement === "remove") continue;
 
-  const requireSource = getStaticRequireSource(declaration.init);
-  if (requireSource) {
-    return createNamespaceImport(j, declaration.id, requireSource);
+      remainingDeclarations.push(declaration);
+    }
+
+    if (remainingDeclarations.length === path.node.declarations.length) return;
+    if (remainingDeclarations.length > 0) {
+      path.node.declarations = remainingDeclarations;
+      return;
+    }
+
+    j(path).remove();
+  });
+}
+
+function createDeclarationReplacement(
+  j,
+  declaration,
+  registry,
+  filePath,
+  declarationPath,
+  comments,
+) {
+  const templateRequire = getJsonTemplateRequire(declaration.init);
+  if (templateRequire && declaration.id.type === "Identifier") {
+    declaration.init = createGlobLookupExpression(j, registry, templateRequire);
+    return "keep";
+  }
+
+  const source = getStaticRequireSource(declaration.init);
+  if (source) {
+    if (isGuardedPotentialNativeRequire(declarationPath, source, filePath)) {
+      return "keep";
+    }
+    return addImportForRequireBinding(
+      j,
+      registry,
+      declaration.id,
+      { kind: "whole", source },
+      comments,
+    )
+      ? "remove"
+      : "keep";
   }
 
   const memberRequire = getStaticRequireMember(declaration.init);
   if (memberRequire) {
-    return createMemberImport(j, declaration.id, memberRequire);
+    if (isGuardedPotentialNativeRequire(declarationPath, memberRequire.source, filePath)) {
+      return "keep";
+    }
+    return addImportForRequireBinding(
+      j,
+      registry,
+      declaration.id,
+      { kind: "member", ...memberRequire },
+      comments,
+    )
+      ? "remove"
+      : "keep";
   }
 
-  return null;
+  return "keep";
 }
 
-function createNamespaceImport(j, binding, source) {
+function addImportForRequireBinding(j, registry, binding, requireInfo, comments) {
   if (binding.type === "Identifier") {
-    if (isJsonSource(source)) {
-      return j.importDeclaration(
-        [j.importDefaultSpecifier(j.identifier(binding.name))],
-        j.literal(source),
-      );
+    if (requireInfo.kind === "whole") {
+      if (isJsonSource(requireInfo.source)) {
+        registry.ensureDefaultImport(requireInfo.source, binding.name, comments);
+        return true;
+      }
+
+      registry.ensureNamespaceImport(requireInfo.source, binding.name, comments);
+      return true;
     }
 
-    return j.importDeclaration(
-      [j.importNamespaceSpecifier(j.identifier(binding.name))],
-      j.literal(source),
+    if (isJsonSource(requireInfo.source)) return false;
+
+    if (requireInfo.member === "default") {
+      registry.ensureDefaultImport(requireInfo.source, binding.name, comments);
+      return true;
+    }
+
+    registry.ensureNamedImport(
+      requireInfo.source,
+      requireInfo.member,
+      binding.name,
+      comments,
     );
+    return true;
   }
 
-  if (binding.type !== "ObjectPattern") return null;
-  if (isJsonSource(source)) return null;
+  if (binding.type !== "ObjectPattern") return false;
+  if (requireInfo.kind !== "whole") return false;
+  if (isJsonSource(requireInfo.source)) return false;
 
   const specifiers = [];
   for (const property of binding.properties) {
-    if (property.type !== "Property") return null;
+    if (property.type !== "Property") return false;
     const importedName = getPropertyName(property.key);
-    if (!importedName) return null;
-    if (property.value.type !== "Identifier") return null;
+    if (!importedName) return false;
+    if (property.value.type !== "Identifier") return false;
 
     specifiers.push(
       j.importSpecifier(
@@ -94,31 +146,305 @@ function createNamespaceImport(j, binding, source) {
     );
   }
 
-  return j.importDeclaration(specifiers, j.literal(source));
+  registry.addImportDeclaration(
+    j.importDeclaration(specifiers, j.literal(requireInfo.source)),
+    comments,
+  );
+  return true;
 }
 
-function createMemberImport(j, binding, memberRequire) {
-  if (binding.type !== "Identifier") return null;
-  if (isJsonSource(memberRequire.source)) return null;
+function migrateRequireMembers(root, j, registry, filePath) {
+  root.find(j.MemberExpression).forEach((path) => {
+    const node = path.node;
+    const source = getStaticRequireSource(node.object);
+    if (!source) return;
+    if (node.computed) return;
+    if (isGuardedPotentialNativeRequire(path, source, filePath)) return;
 
-  if (memberRequire.member === "default") {
-    return j.importDeclaration(
-      [j.importDefaultSpecifier(j.identifier(binding.name))],
-      j.literal(memberRequire.source),
-    );
+    const member = getPropertyName(node.property);
+    if (!member) return;
+
+    if (member === "default") {
+      j(path).replaceWith(() => registry.ensureDefaultImport(source));
+      return;
+    }
+
+    node.object = registry.ensureNamespaceImport(source);
+  });
+}
+
+function migrateDirectRequires(root, j, registry, filePath) {
+  root.find(j.CallExpression, { callee: { type: "Identifier", name: "require" } })
+    .forEach((path) => {
+      if (isRequireUsedAsMemberObject(path)) return;
+      if (isRequireUsedAsVariableInit(path)) return;
+
+      const templateRequire = getJsonTemplateRequire(path.node);
+      if (templateRequire && isDirectRequireReplacementPosition(path)) {
+        j(path).replaceWith(() =>
+          createGlobLookupExpression(j, registry, templateRequire),
+        );
+        return;
+      }
+
+      const source = getStaticRequireSource(path.node);
+      if (!source) return;
+      if (!isDirectRequireReplacementPosition(path)) return;
+      if (isGuardedPotentialNativeRequire(path, source, filePath)) return;
+
+      j(path).replaceWith(() => registry.ensureWholeModuleImport(source));
+    });
+}
+
+function createImportRegistry(j, root) {
+  const importDeclarations = [];
+  const globDeclarations = [];
+  const importKeys = new Map();
+  const globKeys = new Map();
+  const bindingCounts = collectBindingCounts(root, j);
+  const reservedNames = new Set();
+
+  return {
+    addImportDeclaration(declaration, comments) {
+      if (comments && !declaration.comments) {
+        declaration.comments = comments;
+      }
+      importDeclarations.push(declaration);
+    },
+
+    ensureWholeModuleImport(source, preferredName, comments) {
+      if (isJsonSource(source)) {
+        return this.ensureDefaultImport(source, preferredName, comments);
+      }
+
+      return this.ensureNamespaceImport(source, preferredName, comments);
+    },
+
+    ensureNamespaceImport(source, preferredName, comments) {
+      const key = preferredName
+        ? `namespace:${source}:${preferredName}`
+        : `namespace:${source}`;
+      const existing = importKeys.get(key);
+      if (existing) return j.identifier(existing);
+
+      const localName = reserveImportName(
+        preferredName ?? createImportBaseName(source),
+        preferredName,
+        bindingCounts,
+        reservedNames,
+      );
+      const declaration = j.importDeclaration(
+        [j.importNamespaceSpecifier(j.identifier(localName))],
+        j.literal(source),
+      );
+      this.addImportDeclaration(declaration, comments);
+      importKeys.set(key, localName);
+      return j.identifier(localName);
+    },
+
+    ensureDefaultImport(source, preferredName, comments) {
+      const key = preferredName
+        ? `default:${source}:${preferredName}`
+        : `default:${source}`;
+      const existing = importKeys.get(key);
+      if (existing) return j.identifier(existing);
+
+      const localName = reserveImportName(
+        preferredName ?? createImportBaseName(source),
+        preferredName,
+        bindingCounts,
+        reservedNames,
+      );
+      const declaration = j.importDeclaration(
+        [j.importDefaultSpecifier(j.identifier(localName))],
+        j.literal(source),
+      );
+      this.addImportDeclaration(declaration, comments);
+      importKeys.set(key, localName);
+      return j.identifier(localName);
+    },
+
+    ensureNamedImport(source, importedName, preferredName, comments) {
+      const key = `named:${source}:${importedName}:${preferredName}`;
+      const existing = importKeys.get(key);
+      if (existing) return j.identifier(existing);
+
+      const localName = reserveImportName(
+        preferredName,
+        preferredName,
+        bindingCounts,
+        reservedNames,
+      );
+      const declaration = j.importDeclaration(
+        [
+          j.importSpecifier(
+            j.identifier(importedName),
+            localName === importedName ? null : j.identifier(localName),
+          ),
+        ],
+        j.literal(source),
+      );
+      this.addImportDeclaration(declaration, comments);
+      importKeys.set(key, localName);
+      return j.identifier(localName);
+    },
+
+    ensureGlobMap(pattern) {
+      const existing = globKeys.get(pattern);
+      if (existing) return j.identifier(existing);
+
+      const localName = reserveImportName(
+        `${createImportBaseName(pattern, { keepJsonPrefix: true })}Modules`,
+        undefined,
+        bindingCounts,
+        reservedNames,
+      );
+      globDeclarations.push(createGlobMapDeclaration(j, localName, pattern));
+      globKeys.set(pattern, localName);
+      return j.identifier(localName);
+    },
+
+    getHoistedDeclarations() {
+      return [...importDeclarations, ...globDeclarations];
+    },
+  };
+}
+
+function collectBindingCounts(root, j) {
+  const counts = new Map();
+  const add = (name) => {
+    counts.set(name, (counts.get(name) ?? 0) + 1);
+  };
+
+  root.find(j.ImportSpecifier).forEach((path) => {
+    const local = path.node.local ?? path.node.imported;
+    if (local?.type === "Identifier") add(local.name);
+  });
+  root.find(j.ImportDefaultSpecifier).forEach((path) => add(path.node.local.name));
+  root.find(j.ImportNamespaceSpecifier).forEach((path) => add(path.node.local.name));
+  root.find(j.VariableDeclarator).forEach((path) => collectPatternNames(path.node.id, add));
+  root.find(j.FunctionDeclaration).forEach((path) => {
+    if (path.node.id) add(path.node.id.name);
+    for (const param of path.node.params) collectPatternNames(param, add);
+  });
+  root.find(j.FunctionExpression).forEach((path) => {
+    if (path.node.id) add(path.node.id.name);
+    for (const param of path.node.params) collectPatternNames(param, add);
+  });
+  root.find(j.ArrowFunctionExpression).forEach((path) => {
+    for (const param of path.node.params) collectPatternNames(param, add);
+  });
+  root.find(j.ClassDeclaration).forEach((path) => {
+    if (path.node.id) add(path.node.id.name);
+  });
+  root.find(j.CatchClause).forEach((path) => {
+    if (path.node.param) collectPatternNames(path.node.param, add);
+  });
+
+  return counts;
+}
+
+function collectPatternNames(pattern, add) {
+  if (!pattern) return;
+  if (pattern.type === "Identifier") {
+    add(pattern.name);
+    return;
+  }
+  if (pattern.type === "ObjectPattern") {
+    for (const property of pattern.properties) {
+      if (property.type === "Property") {
+        collectPatternNames(property.value, add);
+      } else if (property.type === "RestElement") {
+        collectPatternNames(property.argument, add);
+      }
+    }
+    return;
+  }
+  if (pattern.type === "ArrayPattern") {
+    for (const element of pattern.elements) collectPatternNames(element, add);
+    return;
+  }
+  if (pattern.type === "RestElement") {
+    collectPatternNames(pattern.argument, add);
+    return;
+  }
+  if (pattern.type === "AssignmentPattern") {
+    collectPatternNames(pattern.left, add);
+  }
+}
+
+function reserveImportName(baseName, preferredName, bindingCounts, reservedNames) {
+  if (
+    preferredName &&
+    !reservedNames.has(preferredName) &&
+    (bindingCounts.get(preferredName) ?? 0) <= 1
+  ) {
+    reservedNames.add(preferredName);
+    return preferredName;
   }
 
-  return j.importDeclaration(
-    [
-      j.importSpecifier(
-        j.identifier(memberRequire.member),
-        binding.name === memberRequire.member
-          ? null
-          : j.identifier(binding.name),
-      ),
-    ],
-    j.literal(memberRequire.source),
+  if (!bindingCounts.has(baseName) && !reservedNames.has(baseName)) {
+    reservedNames.add(baseName);
+    return baseName;
+  }
+
+  const candidateBase = `${baseName}Module`;
+  let candidate = candidateBase;
+  let suffix = 2;
+  while (reservedNames.has(candidate) || bindingCounts.has(candidate)) {
+    candidate = `${candidateBase}${suffix}`;
+    suffix += 1;
+  }
+  reservedNames.add(candidate);
+  return candidate;
+}
+
+function insertHoistedDeclarations(root, j, registry) {
+  const declarations = registry.getHoistedDeclarations();
+  if (declarations.length === 0) return;
+
+  root.find(j.Program).forEach((programPath) => {
+    const body = programPath.node.body;
+    const insertIndex = findImportInsertIndex(body);
+    programPath.node.body = [
+      ...body.slice(0, insertIndex),
+      ...declarations,
+      ...body.slice(insertIndex),
+    ];
+  });
+}
+
+function createGlobLookupExpression(j, registry, templateRequire) {
+  return j.memberExpression(
+    registry.ensureGlobMap(templateRequire.pattern),
+    templateRequire.key,
+    true,
   );
+}
+
+function createGlobMapDeclaration(j, bindingName, pattern) {
+  return j.variableDeclaration("const", [
+    j.variableDeclarator(
+      j.identifier(bindingName),
+      j.callExpression(
+        j.memberExpression(
+          {
+            type: "MetaProperty",
+            meta: j.identifier("import"),
+            property: j.identifier("meta"),
+          },
+          j.identifier("glob"),
+        ),
+        [
+          j.literal(pattern),
+          j.objectExpression([
+            j.property("init", j.identifier("eager"), j.literal(true)),
+            j.property("init", j.identifier("import"), j.literal("default")),
+          ]),
+        ],
+      ),
+    ),
+  ]);
 }
 
 function getStaticRequireSource(node) {
@@ -144,6 +470,29 @@ function getStaticRequireMember(node) {
   return { source, member };
 }
 
+function getJsonTemplateRequire(node) {
+  if (!node || node.type !== "CallExpression") return null;
+  if (node.callee.type !== "Identifier" || node.callee.name !== "require") {
+    return null;
+  }
+  if (node.arguments.length !== 1) return null;
+
+  const argument = node.arguments[0];
+  if (!argument || argument.type !== "TemplateLiteral") return null;
+  if (argument.expressions.length !== 1) return null;
+  if (argument.quasis.length !== 2) return null;
+
+  const prefix = argument.quasis[0]?.value.cooked;
+  const suffix = argument.quasis[1]?.value.cooked;
+  if (typeof prefix !== "string" || typeof suffix !== "string") return null;
+  if (!suffix.endsWith(".json")) return null;
+
+  return {
+    key: argument,
+    pattern: `${prefix}*${suffix}`,
+  };
+}
+
 function getPropertyName(node) {
   if (node.type === "Identifier") return node.name;
   if (node.type === "StringLiteral") return node.value;
@@ -166,12 +515,69 @@ function isJsonSource(source) {
   return source.endsWith(".json");
 }
 
+function createImportBaseName(source, options = {}) {
+  const normalizedSource =
+    isJsonSource(source) && !options.keepJsonPrefix
+      ? source.replace(/^json\//, "")
+      : source;
+  const parts = normalizedSource
+    .replace(/\*/g, "")
+    .split(/[^A-Za-z0-9]+/)
+    .filter(Boolean);
+
+  if (parts.length === 0) return "moduleImport";
+
+  return parts
+    .map((part, index) => {
+      const lower = part.toLowerCase();
+      if (index === 0) return lower;
+      return `${lower.slice(0, 1).toUpperCase()}${lower.slice(1)}`;
+    })
+    .join("");
+}
+
 function findImportInsertIndex(body) {
   let index = 0;
   while (index < body.length && body[index]?.type === "ImportDeclaration") {
     index += 1;
   }
   return index;
+}
+
+function isRequireUsedAsMemberObject(path) {
+  const parent = path.parent?.node;
+  return parent?.type === "MemberExpression" && parent.object === path.node;
+}
+
+function isRequireUsedAsVariableInit(path) {
+  const parent = path.parent?.node;
+  return parent?.type === "VariableDeclarator" && parent.init === path.node;
+}
+
+function isDirectRequireReplacementPosition(path) {
+  const parent = path.parent?.node;
+  if (!parent) return false;
+
+  if (parent.type === "ReturnStatement" && parent.argument === path.node) {
+    return true;
+  }
+  if (parent.type === "AssignmentExpression" && parent.right === path.node) {
+    return true;
+  }
+  if (
+    (parent.type === "CallExpression" || parent.type === "NewExpression") &&
+    parent.arguments.includes(path.node)
+  ) {
+    return true;
+  }
+  if (parent.type === "ArrayExpression" && parent.elements.includes(path.node)) {
+    return true;
+  }
+  if (parent.type === "Property" && parent.value === path.node) {
+    return true;
+  }
+
+  return false;
 }
 
 function isFailOnUnsupportedEnabled(options) {
@@ -184,13 +590,11 @@ function isFailOnUnsupportedEnabled(options) {
 }
 
 function failOnUnsupportedCommonJs(root, j, filePath) {
-  root.find(j.CallExpression, { callee: { type: "Identifier", name: "require" } })
-    .forEach((path) => {
-      throwUnsupported("require()", filePath, path.node.loc);
-    });
-
   root.find(j.MemberExpression).forEach((path) => {
     const node = path.node;
+    if (isComputedRequireMember(node)) {
+      throwUnsupported("computed require member", filePath, node.loc);
+    }
     if (isModuleExports(node)) {
       throwUnsupported("module.exports", filePath, node.loc);
     }
@@ -198,6 +602,55 @@ function failOnUnsupportedCommonJs(root, j, filePath) {
       throwUnsupported("exports", filePath, node.loc);
     }
   });
+
+  root.find(j.ConditionalExpression).forEach((path) => {
+    if (containsPlatformConstant(path.node.test) && containsRequire(path.node)) {
+      throwUnsupported("platform conditional require()", filePath, path.node.loc);
+    }
+  });
+
+  root.find(j.CallExpression, { callee: { type: "Identifier", name: "require" } })
+    .forEach((path) => {
+      const source = getStaticRequireSource(path.node);
+      if (source && isGuardedPotentialNativeRequire(path, source, filePath)) {
+        throwUnsupported("guarded native module require()", filePath, path.node.loc);
+      }
+      if (isDynamicRequire(path.node)) {
+        throwUnsupported("dynamic require()", filePath, path.node.loc);
+      }
+      throwUnsupported("require()", filePath, path.node.loc);
+    });
+}
+
+function isComputedRequireMember(node) {
+  return node.computed && Boolean(getStaticRequireSource(node.object));
+}
+
+function isDynamicRequire(node) {
+  if (node.arguments.length !== 1) return true;
+  return getStaticRequireSource(node) === null;
+}
+
+function containsRequire(node) {
+  if (!node || typeof node !== "object") return false;
+  if (
+    node.type === "CallExpression" &&
+    node.callee.type === "Identifier" &&
+    node.callee.name === "require"
+  ) {
+    return true;
+  }
+
+  for (const value of Object.values(node)) {
+    if (!value) continue;
+    if (Array.isArray(value)) {
+      if (value.some((item) => containsRequire(item))) return true;
+      continue;
+    }
+    if (typeof value === "object" && containsRequire(value)) return true;
+  }
+
+  return false;
 }
 
 function isModuleExports(node) {
@@ -211,6 +664,61 @@ function isModuleExports(node) {
 
 function isExportsMember(node) {
   return node.object.type === "Identifier" && node.object.name === "exports";
+}
+
+function isGuardedPotentialNativeRequire(path, source, filePath) {
+  return (
+    isSharedCodePath(filePath) &&
+    isPotentialNativeModuleSource(source) &&
+    isUnderPlatformGuard(path)
+  );
+}
+
+function isSharedCodePath(filePath) {
+  const normalized = filePath.replace(/\\/g, "/");
+  return !/(^|\/)(ios|iphone|android)(\/|$)/.test(normalized);
+}
+
+function isPotentialNativeModuleSource(source) {
+  if (isJsonSource(source)) return false;
+  if (source.startsWith(".") || source.startsWith("/")) return false;
+  if (source.startsWith("alloy/")) return false;
+  return true;
+}
+
+function isUnderPlatformGuard(path) {
+  let current = path.parent;
+  while (current?.node) {
+    const node = current.node;
+    if (node.type === "IfStatement" && containsPlatformConstant(node.test)) {
+      return true;
+    }
+    current = current.parent;
+  }
+  return false;
+}
+
+function containsPlatformConstant(node) {
+  if (!node || typeof node !== "object") return false;
+  if (
+    node.type === "Identifier" &&
+    (node.name === "OS_IOS" || node.name === "OS_ANDROID")
+  ) {
+    return true;
+  }
+
+  for (const value of Object.values(node)) {
+    if (!value) continue;
+    if (Array.isArray(value)) {
+      if (value.some((item) => containsPlatformConstant(item))) return true;
+      continue;
+    }
+    if (typeof value === "object" && containsPlatformConstant(value)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function throwUnsupported(kind, filePath, loc) {

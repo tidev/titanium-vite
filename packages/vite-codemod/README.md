@@ -45,10 +45,20 @@ The codemod currently handles:
 - `const Module = require("module").default;`
 - `const member = require("module").member;`
 - `const { member, other: alias } = require("module");`
+- nested `const`/`let`/`var` declarations initialized from static `require()`
+- assignments such as `global.Module = require("module");`
+- inline member access such as `require("module").createView();`
+- writable module properties such as `require("module").enabled = true;`
+- return values and call arguments such as `return require("data.json");`
+- bounded JSON template requires such as
+  `` require(`json/countries/${locale}.json`) `` via eager
+  `import.meta.glob()` maps
 
 JSON requires are migrated to default imports. Other whole-module requires are migrated to namespace imports to preserve object-style member access.
 
-By default, unsupported CommonJS usage is left unchanged so migration can be applied incrementally. Use `--fail-on-unsupported=true` during audits to fail files that still contain unsupported `require()`, `exports.*`, or `module.exports` syntax after safe rewrites. The CLI automatically enables jscodeshift's `--fail-on-error` for that audit mode.
+Platform-conditional native module requires are intentionally not auto-rewritten from shared code. For example, `OS_IOS ? require("a") : require("b")` and `if (OS_ANDROID) require("ti.playservices")` need a platform-specific wrapper or an explicit app abstraction.
+
+By default, unsupported CommonJS usage is left unchanged so migration can be applied incrementally. Use `--fail-on-unsupported=true` during audits to fail files that still contain unsupported `require()`, `exports.*`, or `module.exports` syntax after safe rewrites. Diagnostics classify dynamic requires, platform conditional requires, guarded native module requires, and computed require members where possible. The CLI automatically enables jscodeshift's `--fail-on-error` for that audit mode.
 
 ## migrate-widget-wpath-requires
 
