@@ -34,6 +34,20 @@ async function loadDynamicController() {
 	);
 }
 
+async function loadImportControllerProbe() {
+	const appController = await Alloy.importController("dynamic/hello", {
+		source: "Alloy.importController",
+	});
+	console.log(
+		`[alloy-import-controller] app helper: ${appController.getMessage()}`,
+	);
+
+	const widgetChildMessage = await authoredWidget.getImportedChildMessage();
+	console.log(
+		`[alloy-import-controller] widget helper: ${widgetChildMessage}`,
+	);
+}
+
 function doClick() {
 	formatLabelText($.label.text);
 	alert($.label.text);
@@ -62,6 +76,9 @@ console.log(`[alloy-esm] xml widget: ${$.xmlWidget.getMessage()}`);
 runNativeRequireProbe();
 void loadDynamicController().catch((error) => {
 	console.log("[alloy-esm] dynamic import failed", error);
+});
+void loadImportControllerProbe().catch((error) => {
+	console.log("[alloy-import-controller] helper probe failed", error);
 });
 console.log("[alloy-esm] index opened");
 $.index.open();

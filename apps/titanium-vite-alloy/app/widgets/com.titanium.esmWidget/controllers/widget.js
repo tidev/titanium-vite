@@ -12,3 +12,10 @@ $.title.text = helper.describeWidget(source);
 export function getMessage() {
 	return `${helper.describeWidget(source)} with ${child.getMessage()}`;
 }
+
+export async function getImportedChildMessage() {
+	const importedChild = await Widget.importController("child", {
+		source: "importController",
+	});
+	return importedChild.getMessage();
+}
