@@ -53,6 +53,17 @@ function doClick() {
 	alert($.label.text);
 }
 
+async function openDetailsWindow() {
+	const detailsController = await Alloy.importController("details");
+	detailsController.getView().open();
+}
+
+function openDetails() {
+	void openDetailsWindow().catch((error) => {
+		console.log("[alloy-navigation] details open failed", error);
+	});
+}
+
 function runNativeRequireProbe() {
 	console.log("[alloy-esm-repro] before require('ti.polyfill')");
 	const TiPolyfillViaRequire = require("ti.polyfill");

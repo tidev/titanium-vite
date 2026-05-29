@@ -22,3 +22,10 @@
 		fontSize: 14
 	}
 }
+
+"#openDetailsButton": {
+	top: 24,
+	width: 220,
+	height: 44,
+	title: "Open Details"
+}

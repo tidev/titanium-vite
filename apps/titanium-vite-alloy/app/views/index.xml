@@ -3,5 +3,6 @@
 		<Label id="label" onClick="doClick">Hello, World</Label>
 		<Label id="modelLabel" />
 		<Widget src="com.titanium.esmWidget" id="xmlWidget" source="xml" />
+		<Button id="openDetailsButton" onClick="openDetails">Open Details</Button>
 	</Window>
 </Alloy>

@@ -1,0 +1,11 @@
+".detailsWindow": {
+	backgroundColor: "white",
+	layout: "vertical"
+}
+
+"#closeDetailsButton": {
+	top: 120,
+	width: 180,
+	height: 44,
+	title: "Close"
+}

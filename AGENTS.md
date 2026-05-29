@@ -65,6 +65,7 @@ Always evaluate Lambus in both Titanium Vite modes before calling a runtime issu
 - `postinstall` runs `pnpm dlx sherif@latest` to detect cross-workspace dependency drift.
 - ESM-only. Every package has `"type": "module"`.
 - Keep `docs/alloy-esm-migration-notes.md` updated when changing Alloy/Vite ESM behavior, app-source migration requirements, or runtime interop assumptions. Treat it as a concise scratchpad for a future full migration guide.
+- Do not add automated tests for the example apps under `apps/`. Their purpose is manual/runtime evaluation through Titanium build and serve flows.
 
 ## ANTI-PATTERNS (THIS PROJECT)
 - `@typescript-eslint/no-non-null-assertion: error` — no `x!`. Also matches the user's global rule.
