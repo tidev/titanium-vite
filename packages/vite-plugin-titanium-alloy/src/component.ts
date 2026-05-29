@@ -17,6 +17,8 @@ const INTEROP_HELPER_ID = 'virtual:titanium/alloy-interop';
 const RESOLVED_INTEROP_HELPER_ID = `\0${INTEROP_HELPER_ID}`;
 const INTEROP_HELPER_IMPORT =
 	'import { __alloyViteGetInteropProperty } from "virtual:titanium/alloy-interop";';
+const WIDGET_IMPORT_CONTROLLER_RUNTIME_IMPORT =
+	'import __alloyViteCreateWidget from "/alloy/widget";';
 const generatedNamespaceImportRE =
 	/^import \* as ([A-Za-z_$][\w$]*) from ['"]([^'"]+)['"];$/gm;
 const INTEROP_HELPER_CODE = `export function __alloyViteGetInteropProperty(moduleValue, propertyName) {
@@ -69,6 +71,20 @@ export function patchModuleFactoryInterop(code: string): string {
 	if (!didPatch) return code;
 	if (patched.includes(INTEROP_HELPER_IMPORT)) return patched;
 	return `${INTEROP_HELPER_IMPORT}\n${patched}`;
+}
+
+export function patchWidgetImportControllerRuntime(
+	code: string,
+	widgetId: string | undefined
+): string {
+	if (!widgetId || !code.includes('Widget.importController')) return code;
+	if (code.includes(WIDGET_IMPORT_CONTROLLER_RUNTIME_IMPORT)) return code;
+	if (/\b(?:const|let|var)\s+Widget\b/.test(code)) return code;
+	return [
+		WIDGET_IMPORT_CONTROLLER_RUNTIME_IMPORT,
+		`const Widget = new __alloyViteCreateWidget(${JSON.stringify(widgetId)});`,
+		code
+	].join('\n');
 }
 
 function collectNamespaceBindings(code: string): string[] {
@@ -184,6 +200,8 @@ export function componentPlugin(ctx: AlloyContext): Plugin {
 			}
 
 			const cleanId = cleanUrl(id);
+			const componentMatch = controllerRE.exec(cleanId);
+			const widgetId = componentMatch?.[1];
 
 			if (!query.alloy) {
 				assertNoLegacyCommonJsExport(code, cleanId, 'controller');
@@ -244,7 +262,10 @@ export function componentPlugin(ctx: AlloyContext): Plugin {
 				}
 
 				return {
-					code: patchModuleFactoryInterop(controllerCode),
+					code: patchWidgetImportControllerRuntime(
+						patchModuleFactoryInterop(controllerCode),
+						widgetId
+					),
 					map
 				};
 			} else if (query.type === 'template' || query.type === 'style') {

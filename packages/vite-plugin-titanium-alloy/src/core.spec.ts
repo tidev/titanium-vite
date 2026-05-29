@@ -169,3 +169,15 @@ test("adds async importController to widget runtime", () => {
   );
   expect(code).toContain("return new Controller(args);");
 });
+
+test("falls back to runtime require when production has no dynamic module loader", () => {
+  const code = patchForViteCompatibility(`
+    exports.createController = function(name, args) {
+      var Controller = require('/alloy/controllers/' + name);
+      return new Controller(args);
+    };
+  `);
+
+  expect(code).toContain("No module loader provided.");
+  expect(code).toContain("require(moduleId)");
+});

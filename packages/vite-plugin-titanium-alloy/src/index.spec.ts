@@ -3,7 +3,8 @@ import { fileURLToPath } from "node:url";
 import type { Plugin } from "vite";
 import { expect, test } from "vitest";
 
-import { resolveAlloyPlugins } from "./index.js";
+import { AlloyContext } from "./context.js";
+import { collectRuntimeEntries, resolveAlloyPlugins } from "./index.js";
 
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -31,6 +32,19 @@ test("preloads only shared Alloy runtime modules in dev", () => {
   );
   expect(preloads).not.toContain("/alloy/controllers/index");
   expect(preloads).not.toContain("/alloy/models/Book");
+});
+
+test("emits widget controller runtime entries for production requires", () => {
+  const appRoot = path.join(repoRoot, "apps/titanium-vite-alloy");
+  const entries = collectRuntimeEntries(new AlloyContext(appRoot, "ios"), "ios");
+  const inputs = Object.keys(entries.byChunk);
+
+  expect(inputs).toEqual(
+    expect.arrayContaining([
+      "alloy/widgets/com.titanium.esmWidget/controllers/child",
+      "alloy/widgets/com.titanium.esmWidget/controllers/widget",
+    ]),
+  );
 });
 
 function collectTitaniumDevModulePreloads(plugins: readonly Plugin[]): string[] {

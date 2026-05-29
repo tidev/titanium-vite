@@ -115,7 +115,7 @@ interface CollectedEntries {
   byVirtualId: Record<string, string>; // virtualId → absolute file path
 }
 
-function collectRuntimeEntries(
+export function collectRuntimeEntries(
   ctx: AlloyContext,
   platform: Platform,
 ): CollectedEntries {
@@ -172,6 +172,11 @@ function collectRuntimeEntries(
   if (fs.existsSync(widgetsDir)) {
     for (const widget of fs.readdirSync(widgetsDir, { withFileTypes: true })) {
       if (!widget.isDirectory()) continue;
+      collectDir(
+        `alloy/widgets/${widget.name}/controllers`,
+        `widgets/${widget.name}/controllers`,
+        path.join(widgetsDir, widget.name, "controllers"),
+      );
       collectWidgetModels(appDir, widget.name, platform, byChunk, byVirtualId);
     }
   }

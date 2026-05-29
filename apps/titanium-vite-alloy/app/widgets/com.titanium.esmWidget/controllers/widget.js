@@ -1,16 +1,15 @@
-/* global WPATH */
+import { describeWidget } from "/alloy/widgets/com.titanium.esmWidget/lib/helper";
 
-const helper = require(WPATH("helper"));
 const child = Widget.createController("child", {
 	source: "child",
 });
 
 const source = $.args.source ?? "unknown";
 
-$.title.text = helper.describeWidget(source);
+$.title.text = describeWidget(source);
 
 export function getMessage() {
-	return `${helper.describeWidget(source)} with ${child.getMessage()}`;
+	return `${describeWidget(source)} with ${child.getMessage()}`;
 }
 
 export async function getImportedChildMessage() {

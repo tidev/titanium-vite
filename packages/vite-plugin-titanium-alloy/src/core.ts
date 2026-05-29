@@ -31,8 +31,20 @@ function __alloyViteNormalizeControllerName(name) {
   return String(name).replace(/^\\/+/, "");
 }
 
+function __alloyViteHasNoModuleLoader(error) {
+  return error && String(error.message) === "No module loader provided.";
+}
+
 async function __alloyViteImportControllerModule(moduleId) {
-  var mod = await import(moduleId);
+  var mod;
+  try {
+    mod = await import(moduleId);
+  } catch (error) {
+    if (!__alloyViteHasNoModuleLoader(error)) {
+      throw error;
+    }
+    mod = require(moduleId);
+  }
   return mod && mod.default ? mod.default : mod;
 }
 `;
