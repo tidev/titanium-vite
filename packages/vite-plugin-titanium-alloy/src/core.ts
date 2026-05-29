@@ -26,6 +26,33 @@ const appControllerRequestPattern = "'/alloy/controllers/' \\+ ";
 const widgetControllerRequestPattern =
   "'/alloy/widgets/'.*?'/controllers/' \\+ ";
 
+const alloyImportControllerHelpers = `
+function __alloyViteNormalizeControllerName(name) {
+  return String(name).replace(/^\\/+/, "");
+}
+
+async function __alloyViteImportControllerModule(moduleId) {
+  var mod = await import(moduleId);
+  return mod && mod.default ? mod.default : mod;
+}
+`;
+
+const alloyImportControllerPatch = `
+exports.importController = async function(name, args) {
+  var controllerName = __alloyViteNormalizeControllerName(name);
+  var Controller = await __alloyViteImportControllerModule('/alloy/controllers/' + controllerName);
+  return new Controller(args);
+};
+`;
+
+const widgetImportControllerPatch = `
+this.importController = async function(name, args) {
+  var controllerName = __alloyViteNormalizeControllerName(name);
+  var Controller = await __alloyViteImportControllerModule('/alloy/widgets/' + widgetId + '/controllers/' + controllerName);
+  return new Controller(args);
+};
+`;
+
 interface AlloyServerFsAllowOptions {
   existing: string[];
   appDir: string;
@@ -448,6 +475,26 @@ export function patchForViteCompatibility(content: string) {
   // the constructor directly once entry exports are preserved.
   content = requireControllerExport(content, appControllerRequestPattern);
   content = requireControllerExport(content, widgetControllerRequestPattern);
+
+  if (
+    content.includes("exports.createController =") &&
+    !content.includes("exports.importController =")
+  ) {
+    content = content.replace(
+      "exports.createController =",
+      `${alloyImportControllerHelpers}\n${alloyImportControllerPatch}\nexports.createController =`,
+    );
+  }
+
+  if (
+    content.includes("this.createController =") &&
+    !content.includes("this.importController =")
+  ) {
+    content = content.replace(
+      "this.createController =",
+      `${alloyImportControllerHelpers}\n${widgetImportControllerPatch}\nthis.createController =`,
+    );
+  }
 
   content = content
     // /alloy/CFG is an ESM virtual module in Vite.

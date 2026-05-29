@@ -139,3 +139,33 @@ exports.C = function() {
     code.match(/mod = mod && mod\.default \? mod\.default : mod;/g),
   ).toHaveLength(2);
 });
+
+test("adds async importController to Alloy runtime", () => {
+  const code = patchForViteCompatibility(`
+    exports.createController = function(name, args) {
+      var Controller = require('/alloy/controllers/' + name);
+      return new Controller(args);
+    };
+  `);
+
+  expect(code).toContain("exports.importController = async function(name, args)");
+  expect(code).toContain("__alloyViteNormalizeControllerName(name)");
+  expect(code).toContain("'/alloy/controllers/' + controllerName");
+  expect(code).toContain("return new Controller(args);");
+});
+
+test("adds async importController to widget runtime", () => {
+  const code = patchForViteCompatibility(`
+    this.createController = function(name, args) {
+      var Controller = require('/alloy/widgets/' + widgetId + '/controllers/' + name);
+      return new Controller(args);
+    };
+  `);
+
+  expect(code).toContain("this.importController = async function(name, args)");
+  expect(code).toContain("__alloyViteNormalizeControllerName(name)");
+  expect(code).toContain(
+    "'/alloy/widgets/' + widgetId + '/controllers/' + controllerName",
+  );
+  expect(code).toContain("return new Controller(args);");
+});
