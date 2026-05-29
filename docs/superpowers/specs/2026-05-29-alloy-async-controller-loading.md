@@ -12,9 +12,10 @@ The observed Lambus serve run triggered 4714 `fetchModule` calls and 217
 distinct `/app/controllers/...` modules while the simulator stayed on a blank
 screen. This is a correctness failure, not only a startup performance issue.
 
-Static ESM loading is still the right model for XML-generated structure. The
-problem is applying that model to authored runtime controller factories, where
-the old Alloy API looks lazy but the ESM transform makes it eager.
+Static ESM loading is still the right model for synchronous composition. The
+problem is that authored runtime/navigation controller factories are currently
+indistinguishable from composition factories, so route-level screens can be
+pulled into the initial graph.
 
 ## Goals
 
@@ -23,8 +24,8 @@ the old Alloy API looks lazy but the ESM transform makes it eager.
 - Preserve static ESM imports for XML-generated controller/widget structure.
 - Provide an explicit async API for runtime controller creation.
 - Provide a mechanical migration path for app code.
-- Fail remaining sync runtime controller factory calls clearly before they can
-  create a recursive serve-mode module graph.
+- Make runtime/navigation controller loading explicit enough to create a natural
+  route-level code-splitting boundary.
 
 ## Non-Goals
 
@@ -89,13 +90,20 @@ or insert the child view into a parent `Tab`, `Window`, or `View`. Those
 dependencies must remain synchronously available, so static ESM imports are the
 right model for XML-generated structure.
 
-Authored runtime controller creation is different. Calls in handwritten
-JavaScript control flow, such as event handlers, deep-link handlers, login
-callbacks, and navigation helpers, are the target of this async migration.
+Authored runtime controller creation is different when it opens or prepares a
+separate screen later. Calls in handwritten JavaScript control flow, such as
+event handlers, deep-link handlers, login callbacks, and navigation helpers, are
+the target of this async migration.
 
 Alloy controller instances remain normal synchronous controller instances after
 they have been imported and constructed. APIs such as `getView()`, `getViewEx()`,
 `addTopLevelView()`, and `updateViews()` should not become async.
+
+`Alloy.createController()` and `Widget.createController()` remain the sync
+composition APIs. They mean: this controller belongs to the current UI/component
+graph and may be statically imported. `Alloy.importController()` and
+`Widget.importController()` are the async runtime/navigation APIs. They mean:
+this controller is a later route or flow boundary and should load lazily.
 
 ## Compiler And Plugin Behavior
 
@@ -103,48 +111,44 @@ The Alloy compiler may continue emitting static ESM imports for XML-generated
 structure, including static `<Require>` and `<Widget>` dependencies. These are
 part of controller construction and are expected to be synchronously available.
 
-The authored controller factory transform in Alloy DevKit must stop hoisting
-these calls into top-level imports:
+The authored controller factory transform in Alloy DevKit should keep hoisting
+literal `Alloy.createController(...)` and `Widget.createController(...)` calls
+into static imports by default. That transform is correct for sync composition
+paths, including top-level controller setup, view assembly, `headerView`,
+`footerView`, `contentView`, list rows, widget children, and image generation.
 
-```js
-Alloy.createController(...);
-Widget.createController(...);
-```
-
-The Vite Alloy plugin will provide the primary fail-fast source check for
-app-owned JavaScript. It must run on source before the static-hoist transform can
-turn authored runtime calls into eager imports. It must cover controller source
-and broader app modules such as `app/lib/**`, because Lambus creates controllers
-outside Alloy-compiled controller files too.
-
-When the source check finds an authored sync controller factory call in ESM mode,
-it should report a migration-oriented diagnostic that points to:
-
-```js
-await Alloy.importController(name, args);
-await Widget.importController(name, args);
-```
-
-The check should only target controller factories in this slice:
-
-- `Alloy.createController(...)`
-- `Widget.createController(...)`
-
-It should not block `createWidget`, `createModel`, or `createCollection` until
-those APIs have a separate usage audit and migration design.
+The Vite Alloy plugin should not blanket-reject `createController`. Diagnostics
+may flag likely runtime/navigation candidates that still use sync
+`createController`, but those diagnostics should start as a migration aid rather
+than a hard generic error. Project-specific migration guidance decides which
+calls become `importController`.
 
 ## Codemod
 
-Extend `@titanium-sdk/vite-codemod` with a controller migration command, for
+Extend `@titanium-sdk/vite-codemod` with a controller scanner command, for
 example:
 
 ```bash
-npx @titanium-sdk/vite-codemod migrate-alloy-create-controller path/to/app
-npx @titanium-sdk/vite-codemod migrate-alloy-create-controller path/to/app --check
+npx @titanium-sdk/vite-codemod classify-alloy-controllers path/to/app --check
 ```
 
-The codemod should rewrite mechanically safe cases from sync factory calls to
-async helper calls.
+The tool should classify call sites by local syntax and only rewrite
+mechanically safe cases if a future write mode is added. It cannot reliably
+infer navigation intent across all apps. Its generic output should use
+evidence-based labels:
+
+- `sync-composition-likely`: `.getView()`, `.getViewEx()`, view-like object
+  properties, top-level setup, and widget child composition.
+- `runtime-boundary-candidate`: immediate non-view method chains and
+  callback-shaped contexts.
+- `stateful-ambiguous`: assignments to variables/properties that may be cached
+  controller state or later navigation.
+- `manual-review`: return values, complex expressions, dynamic names, and any
+  call where preserving behavior requires project intent.
+
+Project-specific LLM guidance may map app conventions such as `.open()`,
+`.show()`, or `.openModally()` to runtime/navigation boundaries. The generic
+codemod should not hard-code those method names as universal semantics.
 
 Simple assignments:
 
@@ -175,8 +179,15 @@ Widget-local controller creation follows the same pattern with
 `Widget.importController(...)`.
 
 The codemod may mark containing functions or callbacks `async` when that change
-is mechanically safe. It must report hard sync expression contexts instead of
-inventing fragile control flow.
+is mechanically safe and the call has been classified as a runtime boundary. It
+must report hard sync expression contexts instead of inventing fragile control
+flow.
+
+Because this migration depends on call-site intent, provide an LLM-guided upgrade
+prompt similar in spirit to Prisma's AI migration prompts. The prompt should tell
+an agent how to use scanner output, preserve sync composition, migrate
+runtime/navigation boundaries, work in small reviewable changes, and verify the
+result against the app.
 
 ## Error Handling
 
@@ -195,15 +206,13 @@ Add focused tests for:
 - `Alloy.importController()` name normalization, ESM default unwrapping, and
   controller instantiation.
 - `Widget.importController()` widget-relative resolution and instantiation.
-- The Vite Alloy source check rejecting authored `Alloy.createController(...)`
-  in controller source.
-- The source check rejecting authored `Alloy.createController(...)` in app lib
-  source.
-- The source check rejecting authored `Widget.createController(...)` in widget
-  controller source.
+- Scanner classification for sync composition, runtime-boundary candidates,
+  stateful ambiguous calls, and manual-review contexts.
+- The scanner not treating project-specific method names as universal
+  navigation semantics.
 - XML-generated static controller/widget imports still compiling as static ESM.
-- The codemod rewriting simple assignments and method chains.
-- The codemod `--check` mode reporting unsafe sync expression contexts.
+- The codemod rewriting only high-confidence runtime-boundary cases.
+- The codemod `--check` mode reporting category counts and manual-review sites.
 
 Validation against Lambus must include serve mode with simulator logs and a
 screenshot of the first visible app state. The old failure signature is thousands
@@ -213,11 +222,11 @@ runtime call sites.
 ## Rollout
 
 1. Add the Vite-scoped async controller helper overlay.
-2. Disable authored controller factory static hoisting so it cannot create the
-   recursive graph. XML-generated static imports remain enabled.
-3. Add the Vite Alloy source check for sync controller factories.
-4. Add the codemod and check mode.
-5. Migrate Lambus call sites mechanically.
+2. Preserve static hoisting for sync composition calls.
+3. Add the scanner/codemod classification and check mode.
+4. Add the LLM-guided upgrade prompt.
+5. Trial the migration on a temporary Lambus `main` checkout and compare the
+   result to the existing `vite-build` branch.
 6. Validate Lambus in normal build/run and serve mode.
 7. Update `docs/alloy-esm-migration-notes.md` with the async controller loading
    contract.
@@ -225,5 +234,6 @@ runtime call sites.
 ## Open Questions
 
 None. The initial scope is app and widget controller factories only, with helper
-implementation in the Vite plugin overlay and codemod support in
-`@titanium-sdk/vite-codemod`.
+implementation in the Vite plugin overlay, classification support in
+`@titanium-sdk/vite-codemod`, and LLM-guided migration for intent-sensitive call
+sites.
