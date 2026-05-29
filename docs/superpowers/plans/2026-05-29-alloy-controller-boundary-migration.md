@@ -2,125 +2,43 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add an explicit async controller-loading boundary for Alloy navigation/runtime flows, classify existing `createController` usage, and verify the approach by migrating a temporary Lambus `main` checkout and comparing it to `vite-build`.
+**Goal:** Add migration tooling and guidance for moving confirmed runtime/navigation controller creation to the async Alloy helper after the helper has been proven in isolation.
 
-**Architecture:** `Alloy.createController()` and `Widget.createController()` remain sync composition APIs that may be statically imported. `Alloy.importController()` and `Widget.importController()` become async route/runtime APIs. A scanner/codemod provides syntax-based categories, while an LLM upgrade prompt applies project intent to decide which runtime-boundary candidates should migrate.
+**Architecture:** This plan starts only after `docs/superpowers/plans/2026-05-29-alloy-import-controller-helper.md` has passed with `apps/titanium-vite-alloy`. The migration tooling does not change Alloy runtime behavior. It classifies `createController` usage, documents an LLM-guided upgrade workflow, trials that workflow on a temporary Lambus `main` checkout, and compares the result to the existing `vite-build` branch.
 
-**Tech Stack:** TypeScript, Vite plugin transforms, Alloy runtime overlay, jscodeshift codemod, Vitest, Titanium CLI, Lambus iOS simulator validation.
+**Tech Stack:** jscodeshift codemod, TypeScript CLI registration, Markdown migration prompt, Vitest, Lambus iOS simulator validation.
 
 ---
 
+## Prerequisite
+
+- [ ] **Step 1: Confirm isolated helper proof**
+
+  Do not start this plan until the helper plan has completed and recorded:
+
+  ```md
+  Verification:
+  - pnpm build: pass
+  - alloy plugin core tests: pass
+  - apps/titanium-vite-alloy ti build -p ios: pass
+  - apps/titanium-vite-alloy ti serve ios: pass
+  - simulator screenshot: /private/tmp/titanium-vite-alloy-import-controller.png
+  ```
+
+  Expected: migration work starts from a verified runtime helper, not from an unproven API.
+
 ## File Structure
 
-- `packages/vite-plugin-titanium-alloy/src/core.ts`: patch `/alloy` and `/alloy/widget` runtime modules with async import helpers in Vite mode.
-- `packages/vite-plugin-titanium-alloy/src/core.spec.ts`: assert helper overlay output and name normalization behavior.
 - `packages/vite-codemod/src/index.ts`: register `classify-alloy-controllers`.
-- `packages/vite-codemod/src/cli.ts`: keep existing `--check`/dry-run behavior; no CLI redesign.
-- `packages/vite-codemod/transforms/classify-alloy-controllers.cjs`: scan and classify `Alloy.createController()` / `Widget.createController()` call sites; rewrite only high-confidence runtime-boundary calls when configured.
-- `packages/vite-codemod/transforms/classify-alloy-controllers.spec.mjs`: cover classification categories and check output.
-- `packages/vite-codemod/README.md`: document the scanner, categories, and why it does not infer app-specific navigation intent.
-- `docs/ai-prompts/alloy-controller-boundary-migration.md`: LLM-guided upgrade prompt for intent-sensitive migration.
-- `docs/alloy-esm-migration-notes.md`: document `createController` as sync composition and `importController` as async runtime loading.
+- `packages/vite-codemod/src/cli.ts`: keep existing command dispatch shape; avoid a CLI redesign.
+- `packages/vite-codemod/transforms/classify-alloy-controllers.cjs`: scan `Alloy.createController()` and `Widget.createController()` call sites.
+- `packages/vite-codemod/transforms/classify-alloy-controllers.spec.mjs`: cover scanner categories and check output.
+- `packages/vite-codemod/README.md`: document scanner categories and the limits of mechanical inference.
+- `docs/ai-prompts/alloy-controller-boundary-migration.md`: LLM-guided prompt for intent-sensitive migration.
+- `docs/alloy-esm-migration-notes.md`: document the migration boundary and prompt usage.
 - `docs/superpowers/specs/2026-05-29-alloy-async-controller-loading.md`: keep aligned with the final boundary model.
 
-## Task 1: Add Runtime Helper Overlay
-
-**Files:**
-- Modify: `packages/vite-plugin-titanium-alloy/src/core.ts`
-- Test: `packages/vite-plugin-titanium-alloy/src/core.spec.ts`
-
-- [ ] **Step 1: Write failing helper overlay tests**
-
-  Add tests to `packages/vite-plugin-titanium-alloy/src/core.spec.ts`:
-
-  ```ts
-  import { expect, test } from "vitest";
-  import { patchForViteCompatibility } from "./core.js";
-
-  test("adds async importController to Alloy runtime", () => {
-    const source = "exports.createController = function(name, args) { return new (require('/alloy/controllers/' + name))(args); };";
-    const code = patchForViteCompatibility(source);
-
-    expect(code).toContain("exports.importController = async function(name, args)");
-    expect(code).toContain("__alloyViteNormalizeControllerName(name)");
-    expect(code).toContain("return new Controller(args);");
-  });
-
-  test("adds async importController to widget runtime", () => {
-    const source = "this.createController = function(name, args) { return new (require('/alloy/widgets/' + widgetId + '/controllers/' + name))(args); };";
-    const code = patchForViteCompatibility(source);
-
-    expect(code).toContain("this.importController = async function(name, args)");
-    expect(code).toContain("__alloyViteNormalizeControllerName(name)");
-    expect(code).toContain("'/alloy/widgets/' + widgetId + '/controllers/' +");
-  });
-  ```
-
-- [ ] **Step 2: Run tests to verify failure**
-
-  Run:
-
-  ```bash
-  pnpm --filter @titanium-sdk/vite-plugin-titanium-alloy test -- core.spec.ts
-  ```
-
-  Expected: both new tests fail because `importController` is not injected yet.
-
-- [ ] **Step 3: Implement helper overlay**
-
-  In `packages/vite-plugin-titanium-alloy/src/core.ts`, extend `patchForViteCompatibility()` with string patches for the Alloy runtime and widget runtime. Use helper source shaped like:
-
-  ```js
-  function __alloyViteNormalizeControllerName(name) {
-    return String(name).replace(/^\/+/, "");
-  }
-
-  async function __alloyViteImportControllerModule(moduleId) {
-    const mod = await import(moduleId);
-    return mod && mod.default ? mod.default : mod;
-  }
-  ```
-
-  Patch Alloy runtime after `exports.createController`:
-
-  ```js
-  exports.importController = async function(name, args) {
-    var controllerName = __alloyViteNormalizeControllerName(name);
-    var Controller = await __alloyViteImportControllerModule('/alloy/controllers/' + controllerName);
-    return new Controller(args);
-  };
-  ```
-
-  Patch widget runtime after `this.createController`:
-
-  ```js
-  this.importController = async function(name, args) {
-    var controllerName = __alloyViteNormalizeControllerName(name);
-    var Controller = await __alloyViteImportControllerModule('/alloy/widgets/' + widgetId + '/controllers/' + controllerName);
-    return new Controller(args);
-  };
-  ```
-
-  Keep `createController` unchanged.
-
-- [ ] **Step 4: Run helper tests**
-
-  Run:
-
-  ```bash
-  pnpm --filter @titanium-sdk/vite-plugin-titanium-alloy test -- core.spec.ts
-  ```
-
-  Expected: new helper overlay tests pass.
-
-- [ ] **Step 5: Commit runtime helper**
-
-  ```bash
-  git add packages/vite-plugin-titanium-alloy/src/core.ts packages/vite-plugin-titanium-alloy/src/core.spec.ts
-  git commit -m "feat(alloy): add async controller import helpers"
-  ```
-
-## Task 2: Add Controller Usage Scanner
+## Task 1: Add Controller Usage Scanner
 
 **Files:**
 - Modify: `packages/vite-codemod/src/index.ts`
@@ -129,7 +47,7 @@
 
 - [ ] **Step 1: Register the transform**
 
-  In `packages/vite-codemod/src/index.ts`, add:
+  In `packages/vite-codemod/src/index.ts`, add the transform name while preserving the existing names:
 
   ```ts
   export const transformNames = [
@@ -142,7 +60,7 @@
 
 - [ ] **Step 2: Write classification tests**
 
-  Create `packages/vite-codemod/transforms/classify-alloy-controllers.spec.mjs` with tests that run the transform through `jscodeshift` test utilities and assert category comments/output for:
+  Create `packages/vite-codemod/transforms/classify-alloy-controllers.spec.mjs` with tests that run the transform through the package's existing jscodeshift test pattern and assert category output for these examples:
 
   ```js
   const header = Alloy.createController('/misc/header').getView();
@@ -185,17 +103,30 @@
   Create `packages/vite-codemod/transforms/classify-alloy-controllers.cjs`. Use jscodeshift to find `Alloy.createController(...)` and `Widget.createController(...)`. Classify from local syntax only:
 
   ```js
-  const VIEW_METHODS = new Set(['getView', 'getViewEx']);
-  const VIEW_PROPERTY_NAMES = new Set(['view', 'headerView', 'footerView', 'contentView', 'image']);
+  const VIEW_METHODS = new Set(["getView", "getViewEx"]);
+  const VIEW_PROPERTY_NAMES = new Set([
+    "view",
+    "headerView",
+    "footerView",
+    "contentView",
+    "image",
+  ]);
 
   function classify(path) {
     const parent = path.parent.node;
-    if (isTopLevel(path)) return 'sync-composition-likely';
-    if (isImmediateMethod(path, VIEW_METHODS)) return 'sync-composition-likely';
-    if (isObjectPropertyNamed(path, VIEW_PROPERTY_NAMES)) return 'sync-composition-likely';
-    if (isImmediateMethod(path)) return 'runtime-boundary-candidate';
-    if (parent.type === 'VariableDeclarator' || parent.type === 'AssignmentExpression') return 'stateful-ambiguous';
-    return 'manual-review';
+    if (isTopLevel(path)) return "sync-composition-likely";
+    if (isImmediateMethod(path, VIEW_METHODS)) return "sync-composition-likely";
+    if (isObjectPropertyNamed(path, VIEW_PROPERTY_NAMES)) {
+      return "sync-composition-likely";
+    }
+    if (isImmediateMethod(path)) return "runtime-boundary-candidate";
+    if (
+      parent.type === "VariableDeclarator" ||
+      parent.type === "AssignmentExpression"
+    ) {
+      return "stateful-ambiguous";
+    }
+    return "manual-review";
   }
   ```
 
@@ -224,7 +155,7 @@
   git commit -m "feat(codemod): classify Alloy controller factories"
   ```
 
-## Task 3: Add LLM-Guided Migration Prompt
+## Task 2: Add LLM-Guided Migration Prompt
 
 **Files:**
 - Create: `docs/ai-prompts/alloy-controller-boundary-migration.md`
@@ -341,7 +272,7 @@
   git commit -m "docs: add Alloy controller boundary migration prompt"
   ```
 
-## Task 4: Trial Migration Against Lambus Main
+## Task 3: Trial Migration Against Lambus Main
 
 **Files:**
 - Create temporary worktree outside the active Lambus checkout.
@@ -416,7 +347,7 @@
 
   Expected: file-level differences are explainable. Unexpected mismatches become review items before touching the real `vite-build` branch.
 
-## Task 5: Verification Pass
+## Task 4: Verify Migrated Lambus
 
 **Files:**
 - Modify only after trial: real Lambus `vite-build` branch if the trial succeeds.
@@ -485,7 +416,7 @@
   - controller scanner report before/after: attached or linked
   ```
 
-## Task 6: Cleanup Temporary Worktree
+## Task 5: Cleanup Temporary Worktree
 
 **Files:**
 - Temporary worktree: `/private/tmp/lambus-main-controller-boundary`
@@ -512,6 +443,7 @@
 
 ## Self-Review
 
-- Spec coverage: runtime helper, sync boundary, scanner, LLM prompt, Lambus main trial, comparison with `vite-build`, and normal/serve verification are covered.
+- Spec coverage: scanner, LLM prompt, Lambus main trial, comparison with `vite-build`, and migrated Lambus verification are covered.
 - Placeholder scan: no `TBD`, `TODO`, or undefined task dependencies.
 - Type consistency: helper names are consistently `Alloy.importController()` and `Widget.importController()`; scanner transform name is consistently `classify-alloy-controllers`.
+- Boundary check: the actual Alloy runtime helper change is intentionally excluded and belongs to `2026-05-29-alloy-import-controller-helper.md`.
