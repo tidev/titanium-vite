@@ -1,10 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { Platform } from "@titanium-sdk/vite-utils";
-import type { Plugin, UserConfig } from "vite";
-import { TI_BRIDGE_PLUGIN_NAME } from "@titanium-sdk/vite-utils";
+import type { Plugin } from "vite";
 
 import { assetsPlugin } from "./assets.js";
+import { readBridgeCommand } from "./bridge-command.js";
 import { componentPlugin } from "./component.js";
 import { configPlugin } from "./config.js";
 import { AlloyContext, initContextPlugin } from "./context.js";
@@ -291,36 +291,6 @@ function collectWidgetModels(
   };
 
   walk(modelsDir);
-}
-
-function readBridgeCommand(plugins: UserConfig["plugins"]): "build" | "serve" | undefined {
-  if (!Array.isArray(plugins)) return undefined;
-
-  for (const plugin of plugins) {
-    const command = readBridgeCommandFromPlugin(plugin);
-    if (command) return command;
-  }
-}
-
-function readBridgeCommandFromPlugin(value: unknown): "build" | "serve" | undefined {
-  if (Array.isArray(value)) {
-    return readBridgeCommand(value);
-  }
-  if (!isRecord(value)) return undefined;
-  if (value.name !== TI_BRIDGE_PLUGIN_NAME) return undefined;
-
-  const { api } = value;
-  if (!isRecord(api)) return undefined;
-  const { context } = api;
-  if (!isRecord(context)) return undefined;
-
-  return context.command === "build" || context.command === "serve"
-    ? context.command
-    : undefined;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function getConfiguredSyncAdapters(adapters: string | string[] | undefined) {

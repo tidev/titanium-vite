@@ -1,10 +1,11 @@
 import { createRequire } from "node:module";
 import path from "node:path";
 import type { Platform } from "@titanium-sdk/vite-utils";
-import type { DepOptimizationConfig, Plugin } from "vite";
+import type { DepOptimizationConfig, Plugin, UserConfig } from "vite";
 import type { RolldownPlugin } from "rolldown";
 import { cleanUrl } from "@titanium-sdk/vite-utils";
 
+import { readBridgeCommand } from "./bridge-command.js";
 import { createAlloyConfigCode } from "./config.js";
 import type { AlloyContext } from "./context.js";
 
@@ -26,26 +27,31 @@ const appControllerRequestPattern = "'/alloy/controllers/' \\+ ";
 const widgetControllerRequestPattern =
   "'/alloy/widgets/'.*?'/controllers/' \\+ ";
 
-const alloyImportControllerHelpers = `
+type ImportControllerLoader = "dynamic-import" | "runtime-require";
+
+interface PatchForViteCompatibilityOptions {
+  importControllerLoader?: ImportControllerLoader;
+}
+
+const alloyImportControllerSharedHelpers = `
 function __alloyViteNormalizeControllerName(name) {
   return String(name).replace(/^\\/+/, "");
 }
 
-function __alloyViteHasNoModuleLoader(error) {
-  return error && String(error.message) === "No module loader provided.";
-}
-
-async function __alloyViteImportControllerModule(moduleId) {
-  var mod;
-  try {
-    mod = await import(moduleId);
-  } catch (error) {
-    if (!__alloyViteHasNoModuleLoader(error)) {
-      throw error;
-    }
-    mod = require(moduleId);
-  }
+function __alloyViteUnwrapControllerModule(mod) {
   return mod && mod.default ? mod.default : mod;
+}
+`;
+
+const alloyImportControllerDynamicImportHelper = `
+async function __alloyViteImportControllerModule(moduleId) {
+  return __alloyViteUnwrapControllerModule(await import(moduleId));
+}
+`;
+
+const alloyImportControllerRuntimeRequireHelper = `
+async function __alloyViteImportControllerModule(moduleId) {
+  return __alloyViteUnwrapControllerModule(require(moduleId));
 }
 `;
 
@@ -119,6 +125,7 @@ interface AlloyOptimizeDepsRolldownOptions {
 interface AlloyOptimizerConfigPluginOptions {
   alloyMain: string;
   alloyWidget: string;
+  importControllerLoader: ImportControllerLoader;
 }
 
 interface ViteResolveAlias {
@@ -319,10 +326,23 @@ function alloyOptimizerConfigPlugin(
     transform(code, id) {
       const cleanId = cleanUrl(id);
       if (cleanId === options.alloyMain || cleanId === options.alloyWidget) {
-        return patchForViteCompatibility(code);
+        return patchForViteCompatibility(code, {
+          importControllerLoader: options.importControllerLoader,
+        });
       }
     },
   };
+}
+
+function createAlloyImportControllerHelpers(
+  loader: ImportControllerLoader,
+): string {
+  return [
+    alloyImportControllerSharedHelpers,
+    loader === "dynamic-import"
+      ? alloyImportControllerDynamicImportHelper
+      : alloyImportControllerRuntimeRequireHelper,
+  ].join("\n");
 }
 
 function getConfiguredSyncAdapters(
@@ -338,16 +358,18 @@ export function corePlugin(ctx: AlloyContext, platform: Platform): Plugin {
   const ALLOY_MAIN = path.join(alloyRoot, "template/lib/alloy.js");
   const ALLOY_WIDGET = path.join(alloyRoot, "lib/alloy/widget.js");
   const ALLOY_UTILS_ROOT = path.dirname(require.resolve("alloy-utils"));
+  let importControllerLoader: ImportControllerLoader = "runtime-require";
 
   return {
     name: "titanium:alloy:core",
 
-    config(config) {
+    config(config, env) {
       const { appDir, root: alloyRoot, compiler } = ctx;
       const compileConfig = compiler.config;
       const backboneVersion = compileConfig.backbone
         ? compileConfig.backbone
         : DEFAULT_BACKBONE_VERSION;
+      importControllerLoader = getImportControllerLoader(config, env.command);
       const alloyAliases = createAlloyAliases({
         appDir,
         alloyMain: ALLOY_MAIN,
@@ -409,6 +431,7 @@ export function corePlugin(ctx: AlloyContext, platform: Platform): Plugin {
           plugin: alloyOptimizerConfigPlugin(ctx, {
             alloyMain: ALLOY_MAIN,
             alloyWidget: ALLOY_WIDGET,
+            importControllerLoader,
           }),
         });
       const titaniumOptimizeDeps =
@@ -435,6 +458,7 @@ export function corePlugin(ctx: AlloyContext, platform: Platform): Plugin {
               plugin: alloyOptimizerConfigPlugin(ctx, {
                 alloyMain: ALLOY_MAIN,
                 alloyWidget: ALLOY_WIDGET,
+                importControllerLoader,
               }),
               // Titanium has a global CommonJS `require`, but it is not Node
               // and cannot resolve `node:` specifiers. Keep optimizer helpers
@@ -471,10 +495,20 @@ export function corePlugin(ctx: AlloyContext, platform: Platform): Plugin {
     transform(code, id) {
       const cleanId = cleanUrl(id);
       if (cleanId === ALLOY_MAIN || cleanId === ALLOY_WIDGET) {
-        return patchForViteCompatibility(code);
+        return patchForViteCompatibility(code, { importControllerLoader });
       }
     },
   };
+}
+
+function getImportControllerLoader(
+  config: UserConfig,
+  viteCommand: "build" | "serve",
+): ImportControllerLoader {
+  const bridgeCommand = readBridgeCommand(config.plugins);
+  if (bridgeCommand === "serve") return "dynamic-import";
+  if (bridgeCommand === "build") return "runtime-require";
+  return viteCommand === "serve" ? "dynamic-import" : "runtime-require";
 }
 
 /**
@@ -482,7 +516,14 @@ export function corePlugin(ctx: AlloyContext, platform: Platform): Plugin {
  *
  * @param content File content to modify
  */
-export function patchForViteCompatibility(content: string) {
+export function patchForViteCompatibility(
+  content: string,
+  options: PatchForViteCompatibilityOptions = {},
+) {
+  const alloyImportControllerHelpers = createAlloyImportControllerHelpers(
+    options.importControllerLoader ?? "dynamic-import",
+  );
+
   // Controller modules are ESM-shaped in dev, but production CJS chunks expose
   // the constructor directly once entry exports are preserved.
   content = requireControllerExport(content, appControllerRequestPattern);
