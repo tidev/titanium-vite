@@ -55,6 +55,12 @@ Base notes for a general Alloy ESM migration guide. Keep concise.
 - Do not preserve arbitrary `Alloy.createController(name)` in ESM mode unless
   the possible module set is statically visible to Vite.
 
+## Async Controller Import Helper
+
+`Alloy.createController()` and `Widget.createController()` remain synchronous composition APIs. The Vite Alloy runtime overlay adds `Alloy.importController()` and `Widget.importController()` for async runtime loading boundaries. The helper returns a normal Alloy controller instance after the module has loaded; controller instance APIs such as `getView()`, `getViewEx()`, `addTopLevelView()`, and `updateViews()` remain synchronous.
+
+The helper contract was first verified against `apps/titanium-vite-alloy` in normal `ti build -p ios` and `ti serve ios` before starting app migration tooling.
+
 ## Widget Definitions
 
 - Static XML `<Widget>` and `<Require type="widget">` dependencies should be emitted as ESM imports from `/alloy/widgets/<id>/controllers/<name>`.
