@@ -61,6 +61,8 @@ Base notes for a general Alloy ESM migration guide. Keep concise.
 
 The helper contract was first verified against `apps/titanium-vite-alloy` in normal `ti build -p ios` and `ti serve ios` before starting app migration tooling.
 
+During the Lambus serve-mode migration, an archived-trip placeholder built with `Alloy.createWidget("io.lambus.emptyState")` blocked trip-list rendering before `ScrollableView.views` was assigned. The widget controller loaded, but `configure()` failed in a widget lib that called `require("ti.polyfill").createActionButton(...)`; in serve mode that runtime `require()` returned a module object without `createActionButton`. Converting that widget lib to a static native-module import (`import TiPolyfill from "ti.polyfill"`) fixed the failure. Treat runtime native-module `require()` from served widget/controller chunks as unsafe during the ESM migration.
+
 ## Widget Definitions
 
 - Static XML `<Widget>` and `<Require type="widget">` dependencies should be emitted as ESM imports from `/alloy/widgets/<id>/controllers/<name>`.
@@ -131,6 +133,7 @@ The helper contract was first verified against `apps/titanium-vite-alloy` in nor
 - Avoid new leading-slash Alloy imports such as `/alloy/underscore` in migrated
   app source.
 - Prefer static ESM imports for Titanium native modules used from app ESM source when the module is available on every target platform that can load the file. Use guarded dynamic `await import("native.module")` inside existing async functions for platform-only native modules in shared source.
+- For synchronous platform-specific native modules, prefer a stable app facade with platform suffix files instead of conditional `require()` specifiers. Example: import `~/lib/native/secure-storage` from shared code and provide `secure-storage.ios.js` / `secure-storage.android.js` files that statically import the native module for that platform. The Titanium resolver selects the active platform suffix and does not fall back to the other platform.
 - App-authored JavaScript should use Vite-native app-local imports such as `~/lib/xp.ui`. Alloy XML can keep app-local module ids such as `module="xp.ui"`; the Vite Alloy compiler normalizes those generated imports when the matching `app/lib` module exists.
 
 ## Known Follow-Up

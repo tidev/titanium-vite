@@ -1,4 +1,5 @@
 import path from "node:path";
+import fs from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { createBuilder, createServer } from "vite";
@@ -86,6 +87,45 @@ test("adds a default tilde alias for Alloy app sources", async () => {
 		);
 	} finally {
 		await server.close();
+	}
+});
+
+test("resolves extensionless Alloy app imports to the active platform suffix", async () => {
+	const appRoot = path.join(repoRoot, "apps/titanium-vite-alloy");
+	const testDir = path.join(appRoot, "app/lib/__platform_suffix_test__");
+	let server: Awaited<ReturnType<typeof createTitaniumTestServer>> | undefined;
+
+	await fs.mkdir(testDir, { recursive: true });
+	await fs.writeFile(
+		path.join(testDir, "secure-store.ios.js"),
+		'export const platformValue = "ios-suffix";\n',
+	);
+	await fs.writeFile(
+		path.join(testDir, "secure-store.android.js"),
+		'export const platformValue = "android-suffix";\n',
+	);
+
+	try {
+		server = await createTitaniumTestServer(appRoot, "alloy");
+		const environment = server.environments.titanium;
+		if (!environment) {
+			throw new Error("Titanium environment missing");
+		}
+
+		const result = await environment.fetchModule(
+			"~/lib/__platform_suffix_test__/secure-store",
+			path.join(appRoot, "app/controllers/index.js"),
+		);
+
+		if (!("code" in result)) {
+			throw new Error("Expected transformed module code");
+		}
+
+		expect(result.code).toContain("ios-suffix");
+		expect(result.code).not.toContain("android-suffix");
+	} finally {
+		await server?.close();
+		await fs.rm(testDir, { recursive: true, force: true });
 	}
 });
 
