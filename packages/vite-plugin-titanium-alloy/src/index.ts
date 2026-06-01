@@ -32,6 +32,7 @@ export function resolveAlloyPlugins(
     widgetPlugin(appDir),
     assetsPlugin(context, platform),
     runtimeEntriesPlugin(context, platform),
+    bootstrapEntriesPlugin(context, platform),
   ];
 }
 
@@ -48,6 +49,7 @@ export function resolveAlloyPlugins(
  * and Titanium's CJS loader resolves the dynamic require against it.
  */
 const VIRTUAL_PREFIX = "\0virtual:titanium/alloy-entry:";
+const BOOTSTRAP_VIRTUAL_PREFIX = "\0virtual:titanium/alloy-bootstrap-entry:";
 const ALLOY_DEV_RUNTIME_PRELOADS = [
   "/alloy",
   "/alloy/CFG",
@@ -90,6 +92,33 @@ function runtimeEntriesPlugin(ctx: AlloyContext, platform: Platform): Plugin {
       // plugin sees them — that plugin treats any `/`-prefixed id as
       // project-root-relative and rebases it under `app/lib/`, which would
       // accumulate the prefix on every re-entry and never terminate.
+      const filePath = entries.byVirtualId[id];
+      if (filePath) return filePath;
+    },
+  };
+}
+
+function bootstrapEntriesPlugin(ctx: AlloyContext, platform: Platform): Plugin {
+  let entries = collectBootstrapEntries(ctx.appDir, platform);
+
+  return {
+    name: "titanium:alloy:bootstrap-entries",
+    apply: "build",
+    enforce: "pre",
+
+    config(config) {
+      const root = config.root ? path.resolve(config.root) : process.cwd();
+      entries = collectBootstrapEntries(path.join(root, "app"), platform);
+      return {
+        build: {
+          rolldownOptions: {
+            input: entries.byChunk,
+          },
+        },
+      };
+    },
+
+    resolveId(id) {
       const filePath = entries.byVirtualId[id];
       if (filePath) return filePath;
     },
@@ -195,71 +224,77 @@ export function collectRuntimeEntries(
     );
   }
 
-  collectBootstrapEntries(appDir, platform, byChunk, byVirtualId);
-
   return { byChunk, byVirtualId };
 }
 
-function collectBootstrapEntries(
+export function collectBootstrapEntries(
   appDir: string,
   platform: Platform,
-  byChunk: Record<string, string>,
-  byVirtualId: Record<string, string>,
 ) {
-  const platformFolder = platform === "ios" ? "iphone" : "android";
-  const roots = ["lib", "vendor"];
   const files = new Map<string, string>();
 
   const collectDir = (dir: string, relBase = "") => {
     if (!fs.existsSync(dir)) return;
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const entries = fs
+      .readdirSync(dir, { withFileTypes: true })
+      .sort((a, b) => a.name.localeCompare(b.name));
+    for (const entry of entries) {
       if (entry.isDirectory()) {
-        if (entry.name === "ios") continue;
-        if (entry.name === "iphone") continue;
-        if (entry.name === "android") continue;
+        if (isLegacyPlatformDirectory(entry.name)) continue;
         collectDir(path.join(dir, entry.name), path.join(relBase, entry.name));
         continue;
       }
-      if (!entry.name.endsWith(".bootstrap.js")) continue;
-      const name = path
-        .join(relBase, entry.name.replace(/\.js$/, ""))
-        .replace(/\\/g, "/");
+
+      const parsed = parseBootstrapFileName(entry.name);
+      if (!parsed) continue;
+      if (parsed.platform !== "base" && parsed.platform !== platform) continue;
+
+      const name = path.join(relBase, parsed.name).replace(/\\/g, "/");
       files.set(name, path.join(dir, entry.name));
     }
   };
 
-  const collectPlatformDir = (dir: string, relBase = "") => {
-    if (!fs.existsSync(dir)) return;
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      if (entry.isDirectory()) {
-        collectPlatformDir(
-          path.join(dir, entry.name),
-          path.join(relBase, entry.name),
-        );
-        continue;
-      }
-      if (!entry.name.endsWith(".bootstrap.js")) continue;
-      const name = path
-        .join(relBase, entry.name.replace(/\.js$/, ""))
-        .replace(/\\/g, "/");
-      files.set(name, path.join(dir, entry.name));
-    }
-  };
+  collectDir(path.join(appDir, "lib"));
 
-  for (const root of roots) {
-    const rootDir = path.join(appDir, root);
-    collectDir(rootDir);
-    collectPlatformDir(path.join(rootDir, platformFolder));
-    if (platform === "ios") {
-      collectPlatformDir(path.join(rootDir, "ios"));
-    }
-  }
-
+  const byChunk: Record<string, string> = {};
+  const byVirtualId: Record<string, string> = {};
   for (const [name, filePath] of files) {
-    const virtualId = `${VIRTUAL_PREFIX}${name}`;
+    const virtualId = `${BOOTSTRAP_VIRTUAL_PREFIX}${name}`;
     byChunk[name] = virtualId;
     byVirtualId[virtualId] = filePath;
   }
+
+  return { byChunk, byVirtualId };
+}
+
+function parseBootstrapFileName(
+  fileName: string,
+): { name: string; platform: Platform | "base" } | undefined {
+  const match = /^(?<base>.+\.bootstrap)(?:\.(?<platform>ios|android))?\.(?:js|ts)$/.exec(
+    fileName,
+  );
+  const groups = match?.groups;
+  if (!groups) return undefined;
+
+  const name = groups.base;
+  if (!name) return undefined;
+
+  const platform = parseBootstrapPlatform(groups.platform);
+  if (!platform) return undefined;
+
+  return { name, platform };
+}
+
+function parseBootstrapPlatform(
+  value: string | undefined,
+): Platform | "base" | undefined {
+  if (value === undefined) return "base";
+  if (value === "ios" || value === "android") return value;
+  return undefined;
+}
+
+function isLegacyPlatformDirectory(name: string) {
+  return name === "android" || name === "ios" || name === "iphone";
 }
 
 function collectWidgetModels(

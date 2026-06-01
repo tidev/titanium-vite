@@ -2,7 +2,10 @@ import type { IncomingMessage, NextFunction } from "connect";
 import type { ServerResponse } from "node:http";
 import type { DevEnvironment, HotPayload, Plugin, ResolvedConfig } from "vite";
 
-import { createTitaniumEnvironment } from "@titanium-sdk/vite-titanium-environment";
+import {
+  createTitaniumBuildInput,
+  createTitaniumEnvironment,
+} from "@titanium-sdk/vite-titanium-environment";
 import type { TitaniumBuildMode } from "@titanium-sdk/vite-titanium-environment";
 import { TI_BRIDGE_PLUGIN_NAME } from "@titanium-sdk/vite-utils";
 
@@ -110,9 +113,10 @@ export function corePlugin(): Plugin {
         return;
       }
 
-      titaniumEnvironment.build.rollupOptions.input = {
-        "module-runner": "virtual:titanium/module-runner",
-      };
+      titaniumEnvironment.build.rollupOptions.input = createTitaniumBuildInput(
+        buildMode,
+        titaniumEnvironment.build.rollupOptions.input,
+      );
     },
     configureServer(server) {
       async function titaniumInvokeMiddleware(

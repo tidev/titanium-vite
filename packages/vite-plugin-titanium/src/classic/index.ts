@@ -1,5 +1,6 @@
 import type { Platform } from "@titanium-sdk/vite-utils";
 import { assetsPlugin } from "./assets.js";
+import { bootstrapPlugin } from "./bootstrap.js";
 import { virtualEntryPlugin } from "./entry.js";
 
 export interface ClassicPluginOptions {
@@ -9,5 +10,5 @@ export interface ClassicPluginOptions {
 export function classicPlugin(options: ClassicPluginOptions) {
   const { platform } = options;
 
-  return [virtualEntryPlugin(), assetsPlugin({ platform })];
+  return [virtualEntryPlugin(), bootstrapPlugin(platform), assetsPlugin({ platform })];
 }

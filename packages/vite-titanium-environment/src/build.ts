@@ -9,10 +9,12 @@ export type TitaniumBuildMode = "app" | "serve-bootstrap";
 
 export function createTitaniumBuildInput(
   mode: TitaniumBuildMode,
+  configuredInput?: unknown,
 ): Record<string, string> {
   if (mode === "serve-bootstrap") {
     return {
       "module-runner": "virtual:titanium/module-runner",
+      ...collectBootstrapInput(configuredInput),
     };
   }
 
@@ -20,6 +22,18 @@ export function createTitaniumBuildInput(
     "module-runner": "virtual:titanium/module-runner",
     main: "virtual:titanium/main",
   };
+}
+
+function collectBootstrapInput(input: unknown): Record<string, string> {
+  if (!isRecord(input)) return {};
+
+  const bootstrapInput: Record<string, string> = {};
+  for (const [name, id] of Object.entries(input)) {
+    if (!name.endsWith(".bootstrap")) continue;
+    if (typeof id !== "string") continue;
+    bootstrapInput[name] = id;
+  }
+  return bootstrapInput;
 }
 
 export function createTitaniumBuildEnvironment(
@@ -57,7 +71,7 @@ export function createTitaniumBuildEnvironment(
           // `entryFileNames` to dispatch on. Object form also lets plugins
           // (e.g. alloy controller/widget/model entries) merge inputs without
           // colliding with Vite's array-concatenation merge semantics.
-          input: createTitaniumBuildInput(resolvedMode),
+          input: createTitaniumBuildInput(resolvedMode, configuredInput),
           preserveEntrySignatures: "exports-only",
           output: {
             // Titanium's runtime evaluates files via JavaScriptCore in script context
@@ -89,7 +103,10 @@ export function createTitaniumBuildEnvironment(
 
   if (resolvedMode === "serve-bootstrap") {
     environment.config.build.rollupOptions.input =
-      createTitaniumBuildInput(resolvedMode);
+      createTitaniumBuildInput(
+        resolvedMode,
+        environment.config.build.rollupOptions.input,
+      );
   }
 
   return environment;

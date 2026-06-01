@@ -633,6 +633,71 @@ test("limits forced serve build to the Titanium module runner bootstrap", async 
 	}
 });
 
+test("keeps classic bootstrap entries for Titanium production builds", async () => {
+	const appRoot = await createClassicBootstrapFixture();
+	const bridgePlugin = createBridgePlugin("build", "ios");
+	const builder = await createBuilder({
+		configFile: false,
+		logLevel: "silent",
+		plugins: [bridgePlugin, titanium({ projectType: "classic" })],
+		root: appRoot,
+	});
+
+	try {
+		const environment = builder.environments.titanium;
+		if (!environment) {
+			throw new Error("Titanium environment missing");
+		}
+		const input = environment.config.build.rollupOptions.input;
+
+		expect(input).toEqual(
+			expect.objectContaining({
+				"lib/plain.bootstrap":
+					"\0virtual:titanium/classic-bootstrap-entry:lib/plain.bootstrap",
+				"lib/secure.bootstrap":
+					"\0virtual:titanium/classic-bootstrap-entry:lib/secure.bootstrap",
+				main: "virtual:titanium/main",
+				"module-runner": "virtual:titanium/module-runner",
+			}),
+		);
+		expectInputRecord(input);
+		expect(Object.keys(input)).not.toContain("lib/secure.bootstrap.ios");
+		expect(Object.keys(input)).not.toContain("lib/secure.bootstrap.android");
+		expect(Object.keys(input)).not.toContain("iphone/legacy.bootstrap");
+	} finally {
+		await fs.rm(appRoot, { force: true, recursive: true });
+	}
+});
+
+test("keeps classic bootstrap entries for Titanium serve builds", async () => {
+	const appRoot = await createClassicBootstrapFixture();
+	const bridgePlugin = createBridgePlugin("serve", "ios");
+	const builder = await createBuilder({
+		configFile: false,
+		logLevel: "silent",
+		plugins: [bridgePlugin, titanium({ projectType: "classic" })],
+		root: appRoot,
+	});
+
+	try {
+		const environment = builder.environments.titanium;
+		if (!environment) {
+			throw new Error("Titanium environment missing");
+		}
+		const input = environment.config.build.rollupOptions.input;
+
+		expect(input).toEqual({
+			"lib/plain.bootstrap":
+				"\0virtual:titanium/classic-bootstrap-entry:lib/plain.bootstrap",
+			"lib/secure.bootstrap":
+				"\0virtual:titanium/classic-bootstrap-entry:lib/secure.bootstrap",
+			"module-runner": "virtual:titanium/module-runner",
+		});
+	} finally {
+		await fs.rm(appRoot, { force: true, recursive: true });
+	}
+});
+
 test("keeps app graph entries for Titanium production builds", async () => {
 	const appRoot = path.join(repoRoot, "apps/titanium-vite-alloy");
 	const previousCwd = process.cwd();
@@ -678,6 +743,48 @@ test("keeps app graph entries for Titanium production builds", async () => {
 	}
 });
 
+test("keeps Alloy bootstrap entries for Titanium serve builds", async () => {
+	const appRoot = path.join(repoRoot, "apps/titanium-vite-alloy");
+	const testDir = path.join(appRoot, "app/lib/__serve_bootstrap_test__");
+	const vendorDir = path.join(appRoot, "app/vendor/__serve_bootstrap_test__");
+	const previousCwd = process.cwd();
+	await fs.mkdir(testDir, { recursive: true });
+	await fs.mkdir(vendorDir, { recursive: true });
+	await fs.writeFile(path.join(testDir, "plain.bootstrap.ts"), "");
+	await fs.writeFile(path.join(testDir, "secure.bootstrap.ios.ts"), "");
+	await fs.writeFile(path.join(testDir, "secure.bootstrap.android.ts"), "");
+	await fs.writeFile(path.join(vendorDir, "legacy.bootstrap.ts"), "");
+	process.chdir(appRoot);
+
+	const bridgePlugin = createBridgePlugin("serve", "ios");
+	const builder = await createBuilder({
+		configFile: false,
+		logLevel: "silent",
+		plugins: [bridgePlugin, titanium({ projectType: "alloy" })],
+		root: appRoot,
+	});
+
+	try {
+		const environment = builder.environments.titanium;
+		if (!environment) {
+			throw new Error("Titanium environment missing");
+		}
+		const input = environment.config.build.rollupOptions.input;
+
+		expect(input).toEqual({
+			"__serve_bootstrap_test__/plain.bootstrap":
+				"\0virtual:titanium/alloy-bootstrap-entry:__serve_bootstrap_test__/plain.bootstrap",
+			"__serve_bootstrap_test__/secure.bootstrap":
+				"\0virtual:titanium/alloy-bootstrap-entry:__serve_bootstrap_test__/secure.bootstrap",
+			"module-runner": "virtual:titanium/module-runner",
+		});
+	} finally {
+		process.chdir(previousCwd);
+		await fs.rm(testDir, { force: true, recursive: true });
+		await fs.rm(vendorDir, { force: true, recursive: true });
+	}
+});
+
 async function collectPluginNames(
 	pluginOptions: readonly PluginOption[],
 ): Promise<string[]> {
@@ -702,6 +809,39 @@ function expectInputRecord(value: unknown): asserts value is Record<string, unkn
 	if (!value || typeof value !== "object" || Array.isArray(value)) {
 		throw new Error("Expected build input to be an object");
 	}
+}
+
+function createBridgePlugin(command: "build" | "serve", platform: "android" | "ios") {
+	return {
+		name: "ti-vite-bridge",
+		api: {
+			context: {
+				command,
+				deployType: command === "serve" ? "development" : "production",
+				devServer:
+					command === "serve"
+						? { origin: "http://127.0.0.1:5173" }
+						: undefined,
+				nativeModules: [],
+				platform,
+				target: command === "serve" ? "simulator" : "dist-appstore",
+			},
+			reportTiApiUsage: vi.fn(),
+		},
+	};
+}
+
+async function createClassicBootstrapFixture() {
+	const appRoot = await fs.mkdtemp(path.join(tmpdir(), "classic-bootstrap-app-"));
+	await fs.mkdir(path.join(appRoot, "src/lib"), { recursive: true });
+	await fs.mkdir(path.join(appRoot, "src/iphone"), { recursive: true });
+	await fs.writeFile(path.join(appRoot, "src/app.js"), "");
+	await fs.writeFile(path.join(appRoot, "src/lib/plain.bootstrap.js"), "");
+	await fs.writeFile(path.join(appRoot, "src/lib/secure.bootstrap.ts"), "");
+	await fs.writeFile(path.join(appRoot, "src/lib/secure.bootstrap.ios.ts"), "");
+	await fs.writeFile(path.join(appRoot, "src/lib/secure.bootstrap.android.ts"), "");
+	await fs.writeFile(path.join(appRoot, "src/iphone/legacy.bootstrap.ts"), "");
+	return appRoot;
 }
 
 async function createTitaniumTestServer(
