@@ -126,6 +126,45 @@ During the Lambus serve-mode migration, an archived-trip placeholder built with 
 - Current codemod classification is path-based, not export-shape-aware. A resolvable app-local whole-module require is assumed to target named ESM exports and becomes a namespace import. That can break default-like value usage such as calling, constructing, returning, or assigning the required module object. Future codemod hardening should combine source classification, target export analysis, and local usage: namespace imports for member-only named-export access, default imports for default-only modules, and strict-mode failures for ambiguous app-local value usage.
 - `migrate-widget-wpath-requires` rewrites top-level `const Module = require(WPATH("module"))` under `app/widgets/<id>/controllers/` to `import * as Module from "/alloy/widgets/<id>/lib/module"`. This belongs in codemods, not in Alloy DevKit runtime/compiler compatibility transforms.
 
+## Bootstrap Files
+
+- Bootstrap files run before the main app entry. Treat them as startup scripts,
+  not ordinary shared modules.
+- Do not convert platform-guarded native module `require()` calls in a shared
+  bootstrap file to unconditional static imports. Static imports can load a
+  native module for the wrong platform before the runtime guard runs.
+- When a bootstrap performs different native setup per platform, prefer
+  platform-specific bootstrap entries and a shared non-bootstrap helper for the
+  common setup:
+  ```js
+  // startup.bootstrap.ios.js
+  import FirebaseCore from "firebase.core";
+  import { runCommonBootstrap } from "~/lib/startup-bootstrap-common";
+
+  FirebaseCore.configure();
+  runCommonBootstrap();
+  ```
+  ```js
+  // startup.bootstrap.android.js
+  import PlayServices from "ti.playservices";
+  import { runCommonBootstrap } from "~/lib/startup-bootstrap-common";
+
+  runCommonBootstrap();
+  PlayServices.makeGooglePlayServicesAvailable((event) => {
+    if (!event.success) {
+      // platform-specific fallback
+    }
+  });
+  ```
+- This keeps platform-specific startup actions visible in the bootstrap entry
+  that performs them, while the platform suffix prevents Vite from statically
+  loading the wrong native module.
+- Keep the common helper out of the `*.bootstrap.*.js` naming pattern unless it
+  should be loaded as an independent Titanium bootstrap script.
+- Recheck the generated bootstrap manifest after migration. The expected shape
+  is one logical bootstrap name for the active platform-specific entry, loaded
+  before the main app entry.
+
 ## Import Specifiers
 
 - `~` is the Titanium Vite app-root alias by default. It maps to `app/` for Alloy and `src/` for classic apps; app-provided `~` aliases take precedence.

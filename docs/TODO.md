@@ -26,8 +26,8 @@ Preferred follow-up:
 - Preserve pre-app execution order.
 - Preserve optional `execute(callback)` waiting semantics.
 - Prefer platform-specific bootstrap entry files when readability of pre-app
-  platform actions matters, for example `lambus.bootstrap.ios.js` and
-  `lambus.bootstrap.android.js`.
+  platform actions matters, for example `startup.bootstrap.ios.js` and
+  `startup.bootstrap.android.js`.
 - Keep platform-only native modules behind platform-specific entry files,
   platform-specific facades, or guarded async imports with explicit callback
   completion.
