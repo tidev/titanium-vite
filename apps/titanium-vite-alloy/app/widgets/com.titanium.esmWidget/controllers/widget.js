@@ -1,4 +1,4 @@
-import { describeWidget } from "/alloy/widgets/com.titanium.esmWidget/lib/helper";
+import { describeWidget } from "#widget/lib/helper";
 
 const child = Widget.createController("child", {
 	source: "child",

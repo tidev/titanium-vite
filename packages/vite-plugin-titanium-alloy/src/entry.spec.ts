@@ -6,6 +6,9 @@ test("normalizes lazy index controller imports across ESM and CJS output", () =>
   const code = createAlloyEntryCode("initialize();");
 
   expect(code).toContain(
+    "return __alloyIndexController ??= import('~/controllers/index');",
+  );
+  expect(code).toContain(
     "const __alloyIndexControllerModule = await __alloyLoadIndexController();",
   );
   expect(code).toContain(

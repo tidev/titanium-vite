@@ -2,6 +2,7 @@ import { expect, test } from "vitest";
 
 import {
   createAlloyAliases,
+  rewriteLegacyAlloySourceImports,
   createAlloyOptimizeDepsInclude,
   createAlloyOptimizeDepsExclude,
   createAlloyOptimizeDepsRolldownOptions,
@@ -9,6 +10,41 @@ import {
   createAlloyServerFsAllow,
   patchForViteCompatibility,
 } from "./core.js";
+
+test("rewrites static legacy Alloy controller imports to app source imports", () => {
+  expect(
+    rewriteLegacyAlloySourceImports(
+      [
+        'import IndexController from "/alloy/controllers/index";',
+        'import ChildController from "/alloy/widgets/com.example.widget/controllers/child";',
+      ].join("\n"),
+      "/project/app/controllers/index.js",
+    ),
+  ).toBe(
+    [
+      'import IndexController from "~/controllers/index";',
+      'import ChildController from "~/widgets/com.example.widget/controllers/child";',
+    ].join("\n"),
+  );
+});
+
+test("rewrites same-widget static legacy lib imports to contextual widget imports", () => {
+  expect(
+    rewriteLegacyAlloySourceImports(
+      'import * as Button from "/alloy/widgets/io.lambus.emptyState/lib/button";',
+      "/project/app/widgets/io.lambus.emptyState/controllers/widget.js",
+    ),
+  ).toBe('import * as Button from "#widget/lib/button";');
+});
+
+test("rewrites cross-widget static legacy lib imports to app source imports", () => {
+  expect(
+    rewriteLegacyAlloySourceImports(
+      'import * as Button from "/alloy/widgets/com.example.other/lib/button";',
+      "/project/app/widgets/io.lambus.emptyState/controllers/widget.js",
+    ),
+  ).toBe('import * as Button from "~/widgets/com.example.other/lib/button";');
+});
 
 test("creates Vite and optimizer aliases from one Alloy alias source", () => {
   const aliases = createAlloyAliases({

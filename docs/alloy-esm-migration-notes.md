@@ -14,7 +14,10 @@ Base notes for a general Alloy ESM migration guide. Keep concise.
 
 - Titanium Vite dev mode preloads only shared Alloy runtime modules and sync adapters.
 - App-owned controllers, models, collections, and widgets must enter the graph through ESM imports.
-- The app entry imports `/alloy/controllers/index` directly and instantiates it.
+- The app entry imports `~/controllers/index` directly and instantiates it.
+- Legacy `/alloy/controllers/*` imports are still supported for intermediate
+  migrations and runtime compatibility, but app-authored and generated static
+  ESM imports should use app-source aliases.
 - Static XML-generated dependencies should be emitted by alloy-devkit as ESM imports.
 - XML UI nodes using `module="..."` should be emitted as ESM namespace imports and generated create calls should use that binding instead of runtime `require(...)`.
 - In Titanium Vite Alloy builds, XML `module="..."` values remain Alloy module ids, not app-authored JavaScript import specifiers. If the module id resolves to an app-local module under `app/lib`, the compiler emits a Vite-native `~` alias import. For example, `module="xp.ui"` with `app/lib/xp.ui.js` becomes `import * as ... from "~/lib/xp.ui"`.
@@ -65,10 +68,10 @@ During the Lambus serve-mode migration, an archived-trip placeholder built with 
 
 ## Widget Definitions
 
-- Static XML `<Widget>` and `<Require type="widget">` dependencies should be emitted as ESM imports from `/alloy/widgets/<id>/controllers/<name>`.
+- Static XML `<Widget>` and `<Require type="widget">` dependencies should be emitted as ESM imports from `~/widgets/<id>/controllers/<name>`.
 - Widget-authored literal `Widget.createController()`, `Widget.createModel()`, and `Widget.createCollection()` calls are compiler-rewritten to static ESM imports in Alloy ESM mode.
 - ESM widget controllers should not rely on runtime `WPATH()` for module loading.
-- Legacy `require(WPATH("module"))` is a migration error in ESM mode. Convert it to a static ESM import from the widget lib module, for example `import * as Button from "/alloy/widgets/<id>/lib/button"`, or use named imports when the target module has named exports.
+- Legacy `require(WPATH("module"))` is a migration error in ESM mode. Convert it to a static ESM import from the widget lib module, for example `import * as Button from "#widget/lib/button"` when importing from the same widget, or `import * as Button from "~/widgets/<id>/lib/button"` for cross-widget imports. Use named imports when the target module has named exports.
 - Dynamic `WPATH()` module loading remains a migration error in ESM mode.
 
 ## Controller Exports
@@ -124,7 +127,7 @@ During the Lambus serve-mode migration, an archived-trip placeholder built with 
 - `migrate-cjs-requires` rewrites resolvable app-local Titanium bare paths to the Vite-native `~` app-root alias. For Alloy, `~` points at `app/`, so legacy paths such as `json/countries/en.json`, `json/countries/*.json`, and `app-utils` become `~/assets/json/countries/en.json`, `~/assets/json/countries/*.json`, and `~/lib/app-utils`.
 - `migrate-cjs-requires` emits default imports for package, builtin, and Titanium native whole-module requires so the generated code keeps the original runtime `require()` value. App-local whole-module requires still become namespace imports.
 - Current codemod classification is path-based, not export-shape-aware. A resolvable app-local whole-module require is assumed to target named ESM exports and becomes a namespace import. That can break default-like value usage such as calling, constructing, returning, or assigning the required module object. Future codemod hardening should combine source classification, target export analysis, and local usage: namespace imports for member-only named-export access, default imports for default-only modules, and strict-mode failures for ambiguous app-local value usage.
-- `migrate-widget-wpath-requires` rewrites top-level `const Module = require(WPATH("module"))` under `app/widgets/<id>/controllers/` to `import * as Module from "/alloy/widgets/<id>/lib/module"`. This belongs in codemods, not in Alloy DevKit runtime/compiler compatibility transforms.
+- `migrate-widget-wpath-requires` rewrites top-level `const Module = require(WPATH("module"))` under `app/widgets/<id>/controllers/` to `import * as Module from "#widget/lib/module"`. This belongs in codemods, not in Alloy DevKit runtime/compiler compatibility transforms.
 
 ## Bootstrap Files
 
@@ -168,6 +171,8 @@ During the Lambus serve-mode migration, an archived-trip placeholder built with 
 ## Import Specifiers
 
 - `~` is the Titanium Vite app-root alias by default. It maps to `app/` for Alloy and `src/` for classic apps; app-provided `~` aliases take precedence.
+- `#widget/*` is a contextual Alloy widget alias. It maps to the current
+  widget source root and only resolves from files under `app/widgets/<id>/`.
 - Prefer bare Alloy imports such as `alloy/underscore`.
 - Avoid new leading-slash Alloy imports such as `/alloy/underscore` in migrated
   app source.

@@ -80,7 +80,7 @@ const Button = require(WPATH("button"));
 becomes:
 
 ```js
-import * as Button from "/alloy/widgets/com.example.widget/lib/button";
+import * as Button from "#widget/lib/button";
 ```
 
 The transform only applies inside `app/widgets/<id>/controllers/` files and only rewrites top-level variable declarations with literal `WPATH()` arguments.

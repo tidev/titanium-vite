@@ -48,7 +48,7 @@ let __alloyIndexController;
 let __alloyIndexControllerStarted = false;
 
 function __alloyLoadIndexController() {
-	return __alloyIndexController ??= import('/alloy/controllers/index');
+	return __alloyIndexController ??= import('~/controllers/index');
 }
 
 async function __alloyCreateIndexController() {

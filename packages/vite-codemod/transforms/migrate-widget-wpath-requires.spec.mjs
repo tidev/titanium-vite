@@ -16,7 +16,7 @@ describe("migrate-widget-wpath-requires", () => {
         "const ActionButton = require(WPATH('button'));\nActionButton.createActionButton();\n",
       ),
     ).toBe(
-      'import * as ActionButton from "/alloy/widgets/io.lambus.emptyState/lib/button";\nActionButton.createActionButton();\n',
+      'import * as ActionButton from "#widget/lib/button";\nActionButton.createActionButton();\n',
     );
   });
 
@@ -26,7 +26,7 @@ describe("migrate-widget-wpath-requires", () => {
         'const format = require(WPATH("formatters/date"));\nformat.shortDate();\n',
       ),
     ).toBe(
-      'import * as format from "/alloy/widgets/io.lambus.emptyState/lib/formatters/date";\nformat.shortDate();\n',
+      'import * as format from "#widget/lib/formatters/date";\nformat.shortDate();\n',
     );
   });
 

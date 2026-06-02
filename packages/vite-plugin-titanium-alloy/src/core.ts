@@ -26,6 +26,8 @@ const DEFAULT_SYNC_ADAPTERS = ["localStorage", "properties", "sql"];
 const appControllerRequestPattern = "'/alloy/controllers/' \\+ ";
 const widgetControllerRequestPattern =
   "'/alloy/widgets/'.*?'/controllers/' \\+ ";
+const staticImportSpecifierRE =
+  /((?:from\s*|import\s*(?:\(\s*)?))(["'])(\/alloy\/(?:controllers\/[^"']+|widgets\/[^"']+))\2/g;
 
 type ImportControllerLoader = "dynamic-import" | "runtime-require";
 
@@ -305,6 +307,88 @@ export function createAlloyAliases({
     resolve: entries.map((entry) => entry.resolve),
     optimizeDeps,
   };
+}
+
+export function rewriteLegacyAlloySourceImports(
+  code: string,
+  importer: string,
+): string {
+  const importerWidgetId = getImporterWidgetId(importer);
+
+  return code.replace(
+    staticImportSpecifierRE,
+    (match, prefix: string, quote: string, specifier: string) => {
+      const rewritten = rewriteLegacyAlloySourceSpecifier(
+        specifier,
+        importerWidgetId,
+      );
+      if (!rewritten) return match;
+      return `${prefix}${quote}${rewritten}${quote}`;
+    },
+  );
+}
+
+function rewriteLegacyAlloySourceSpecifier(
+  specifier: string,
+  importerWidgetId: string | undefined,
+): string | undefined {
+  if (specifier === "/alloy/controllers/BaseController") {
+    return undefined;
+  }
+
+  if (specifier.startsWith("/alloy/controllers/")) {
+    return `~/controllers/${specifier.slice("/alloy/controllers/".length)}`;
+  }
+
+  const widgetSpecifier = parseAlloyWidgetSpecifier(specifier);
+  if (!widgetSpecifier) {
+    return undefined;
+  }
+
+  if (
+    widgetSpecifier.section === "lib" &&
+    importerWidgetId === widgetSpecifier.widgetId
+  ) {
+    return `#widget/lib/${widgetSpecifier.moduleId}`;
+  }
+
+  return `~/widgets/${widgetSpecifier.widgetId}/${widgetSpecifier.section}/${widgetSpecifier.moduleId}`;
+}
+
+interface AlloyWidgetSpecifier {
+  moduleId: string;
+  section: "controllers" | "lib";
+  widgetId: string;
+}
+
+function parseAlloyWidgetSpecifier(
+  specifier: string,
+): AlloyWidgetSpecifier | undefined {
+  const prefix = "/alloy/widgets/";
+  if (!specifier.startsWith(prefix)) {
+    return undefined;
+  }
+
+  const remainder = specifier.slice(prefix.length);
+  const parts = remainder.split("/");
+  const widgetId = parts[0];
+  const section = parts[1];
+  const moduleId = parts.slice(2).join("/");
+
+  if (!widgetId || !moduleId) {
+    return undefined;
+  }
+  if (section !== "controllers" && section !== "lib") {
+    return undefined;
+  }
+
+  return { moduleId, section, widgetId };
+}
+
+function getImporterWidgetId(importer: string): string | undefined {
+  const normalizedImporter = importer.replace(/\\/g, "/");
+  const match = /(?:^|\/)app\/widgets\/([^/]+)\//.exec(normalizedImporter);
+  return match?.[1];
 }
 
 function alloyOptimizerConfigPlugin(

@@ -14,6 +14,20 @@ export function widgetPlugin(appDir: string): Plugin {
      * @todo: Support Widgets from `node_modules`.
      */
     async resolveId(id, importer) {
+      if (id.startsWith("#widget/")) {
+        const widgetSourceId = createContextualWidgetSourceId(
+          appDir,
+          id,
+          importer,
+        );
+        if (!widgetSourceId) return;
+
+        const result = await this.resolve(widgetSourceId, importer, {
+          skipSelf: true,
+        });
+        return result?.id;
+      }
+
       if (id.startsWith("/") && !id.startsWith(appDir)) {
         // check WPATH generated url `/<widget>/<id>`
         const secondSlashIndex = id.indexOf("/", 1);
@@ -32,4 +46,34 @@ export function widgetPlugin(appDir: string): Plugin {
       }
     },
   };
+}
+
+export function createContextualWidgetSourceId(
+  appDir: string,
+  id: string,
+  importer: string | undefined,
+): string | undefined {
+  if (!id.startsWith("#widget/")) return undefined;
+
+  const widgetId = getImporterWidgetId(appDir, importer);
+  if (!widgetId) return undefined;
+
+  return path.join(appDir, "widgets", widgetId, id.slice("#widget/".length));
+}
+
+function getImporterWidgetId(
+  appDir: string,
+  importer: string | undefined,
+): string | undefined {
+  if (!importer) return undefined;
+
+  const relativeImporter = path.relative(appDir, importer).replace(/\\/g, "/");
+  const prefix = "widgets/";
+  if (!relativeImporter.startsWith(prefix)) return undefined;
+
+  const remainder = relativeImporter.slice(prefix.length);
+  const slashIndex = remainder.indexOf("/");
+  if (slashIndex === -1) return undefined;
+
+  return remainder.slice(0, slashIndex);
 }

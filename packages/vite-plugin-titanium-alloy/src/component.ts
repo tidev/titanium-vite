@@ -8,6 +8,7 @@ import { createFilter } from 'vite';
 
 import { assertNoLegacyCommonJsExport } from './commonjs-exports.js';
 import type { AlloyContext } from './context.js';
+import { rewriteLegacyAlloySourceImports } from './core.js';
 
 const controllerRE =
 	/(?:[/\\]widgets[/\\]([^/\\]+))?[/\\](?:controllers)[/\\](.*)/;
@@ -263,7 +264,9 @@ export function componentPlugin(ctx: AlloyContext): Plugin {
 
 				return {
 					code: patchWidgetImportControllerRuntime(
-						patchModuleFactoryInterop(controllerCode),
+						patchModuleFactoryInterop(
+							rewriteLegacyAlloySourceImports(controllerCode, cleanId)
+						),
 						widgetId
 					),
 					map

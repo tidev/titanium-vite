@@ -24,7 +24,7 @@ module.exports = function migrateWidgetWpathRequires(fileInfo, api) {
 
       const importDeclaration = j.importDeclaration(
         [j.importNamespaceSpecifier(j.identifier(declaration.id.name))],
-        j.literal(`/alloy/widgets/${widgetId}/lib/${wpathValue}`),
+        j.literal(`#widget/lib/${wpathValue}`),
       );
       importDeclaration.comments = statement.comments;
       body[index] = importDeclaration;
