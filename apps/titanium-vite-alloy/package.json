@@ -3,10 +3,11 @@
   "version": "1.0.0",
   "description": "",
   "type": "module",
+  "private": true,
   "scripts": {},
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "TiDev, Inc. <npm@tidev.io>",
+  "license": "Apache-2.0",
   "dependencies": {
     "is-odd": "^1.0.0"
   },
@@ -14,6 +15,5 @@
     "@titanium-sdk/vite-plugin-titanium": "workspace:*",
     "alloy": "^3.0.0",
     "vite": "catalog:"
-  },
-  "private": true
+  }
 }
