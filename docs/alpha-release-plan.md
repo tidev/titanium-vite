@@ -1,6 +1,6 @@
 # Titanium Vite — Alpha Release Plan & Status
 
-**Last updated:** 2026-06-15
+**Last updated:** 2026-06-15 (PR #2 merged; changesets release setup added)
 **Goal:** Ship the first alpha of the Titanium Vite integration — publish the six
 `@titanium-sdk/vite-*` packages to npm at `1.0.0-alpha.1`, with their dependency
 chain (Alloy DevKit) and runtime hosts (Titanium CLI + SDK) in place.
@@ -15,7 +15,7 @@ checkboxes as items land.
 | Component | Role | State |
 |---|---|---|
 | `alloy-compiler` / `alloy-utils` (alloy-devkit) | npm deps of the alloy plugin | ✅ **Published** `1.0.0-beta.1` (`beta` tag) |
-| `@titanium-sdk/vite-*` (this repo, 6 pkgs) | the integration | 🟡 Prep done (PR open); **not yet published** |
+| `@titanium-sdk/vite-*` (this repo, 6 pkgs) | the integration | 🟡 Prep merged (PR #2); release tooling in place; **not yet published** (blocked on npm scope access) |
 | `alloy` (runtime) | app dep | ✅ `3.0.1` on npm (verify ESM adapter compat) |
 | `titanium` (Titanium CLI) | `ti serve` | ❌ `serve` command unreleased (on a branch) |
 | Titanium SDK (`titanium_mobile`) | hosts Vite + plugins | ❌ Vite work unreleased (on `vite` branch) |
@@ -61,7 +61,7 @@ concrete version automatically.
 - [x] **PR #1 (merged):** `vite-plugin-titanium-alloy` now depends on the
       published `alloy-compiler`/`alloy-utils` `^1.0.0-beta.1`; removed the local
       `link:` overrides from `pnpm-workspace.yaml`.
-- [x] **PR #2 (OPEN — awaiting merge):** publish prep for all 6 packages at
+- [x] **PR #2 (merged, `fd6fa18`):** publish prep for all 6 packages at
       **`1.0.0-alpha.1`**:
   - `files` allowlist (`dist`, `src`, `!**/*.spec.*`) — required because `dist/`
     is gitignored; without it npm ships no compiled output.
@@ -79,17 +79,24 @@ concrete version automatically.
 ## OPEN TODO ❌
 
 ### A. Land + publish this repo's packages
-- [ ] **Confirm license** = Apache-2.0 (or change in PR #2 before merge).
-- [ ] **Confirm npm publish rights** on the `@titanium-sdk` scope. None of the
-      6 packages exist on npm yet — the first publish bootstraps them.
-- [ ] **Merge PR #2.**
-- [ ] **Add a publish mechanism** (deferred "release strategy"). This repo has
-      **no publish workflow yet**. Recommended: reuse the hardened alloy-devkit
-      `publish.yml` (release `published` trigger + `workflow_dispatch`,
-      `pnpm -r publish`). Decide token vs trusted-publishing; needs `NPM_TOKEN`.
-      Alternative: changesets if versioning/changelog automation is wanted.
-- [ ] **Publish** the 6 packages at `1.0.0-alpha.1` under an **`alpha`** dist-tag
-      (so `npm install` doesn't pick them by default).
+- [x] **License confirmed** = Apache-2.0 (maintainer decision 2026-06-15).
+- [x] **Merge PR #2.** (`fd6fa18`)
+- [x] **Publish mechanism = changesets** (maintainer decision 2026-06-15), scaffolded:
+  - `@changesets/cli` + `.changeset/config.json`. The 6 publishable packages are
+    grouped `fixed` so they always version in lockstep (preserves the same-version
+    invariant `workspace:*` rewrites depend on). Private apps/tooling auto-ignored.
+  - Repo is in **pre mode `alpha`** (`.changeset/pre.json`) → `version-packages`
+    bumps `…-alpha.N`; `changeset publish` keys the dist-tag off the prerelease
+    component, so releases land on **`alpha`** and `latest` stays clean.
+  - Scripts: `changeset`, `version-packages`, `release` (build + publish).
+  - `.github/workflows/release.yml` (changesets/action; push-to-main → opens a
+    "Version Packages" PR, publishes on merge). **Needs `NPM_TOKEN` secret.**
+  - Verified `pnpm -r publish --dry-run --tag alpha`: all 6 build + pack at alpha.1.
+- [ ] **Confirm npm publish rights** on the `@titanium-sdk` scope. ⛔ **BLOCKER** —
+      none of the 6 packages exist on npm yet; first publish bootstraps the scope.
+      Maintainer must verify/obtain scope access (and add `NPM_TOKEN` to repo secrets).
+- [ ] **Publish** the 6 packages at `1.0.0-alpha.1` under the **`alpha`** dist-tag.
+      First release ships the already-pinned alpha.1; no version bump needed.
 - [ ] Verify install from a clean consumer (`npm i @titanium-sdk/vite-plugin-titanium@alpha`).
 
 ### B. Titanium CLI (`../titanium-cli`, repo `tidev/titanium-cli`)
@@ -113,7 +120,7 @@ concrete version automatically.
 - [ ] `references/liveview` still pins alloy `0.2.7` — intentionally left
       (vendored reference, outside the workspace).
 - [ ] `rolldown@^1.0.0-rc.18` (RC) pinned in both plugins — acceptable for alpha.
-- [ ] No CI workflows in this repo's `.github/` (CLA, lint, test, publish all TBD).
+- [ ] CI workflows: `release.yml` (changesets) added; CLA, lint, test still TBD.
 
 ---
 
@@ -155,8 +162,9 @@ npm view alloy-compiler dist-tags --json
 ```
 
 ## Open questions for the maintainer
-- License: Apache-2.0 confirmed? (PR #2)
-- `@titanium-sdk` npm scope publish access available?
-- Publish mechanism: reuse alloy-devkit workflow, or adopt changesets?
+- ✅ License: Apache-2.0 — confirmed.
+- ✅ Publish mechanism: changesets — decided + scaffolded.
+- ⛔ `@titanium-sdk` npm scope publish access — **still open; this blocks first publish.**
+      Once available, add `NPM_TOKEN` to repo secrets, then merge a changeset to main.
 - SDK alpha distribution: upstream release vs documented CI build?
 - Version line: stay on `1.0.0-alpha.x`, or reset to `0.x` for the alpha?
