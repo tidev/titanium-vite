@@ -16,10 +16,6 @@ catalogs:
       specifier: ^5.6.3
       version: 5.9.3
 
-overrides:
-  alloy-compiler: link:../../../alloy-devkit/packages/alloy-compiler
-  alloy-utils: link:../../../alloy-devkit/packages/alloy-utils
-
 importers:
 
   .:
