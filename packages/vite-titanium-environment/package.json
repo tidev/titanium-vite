@@ -23,6 +23,20 @@
   "keywords": [],
   "author": "TiDev, Inc. <npm@tidev.io>",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tidev/titanium-vite.git",
+    "directory": "packages/vite-titanium-environment"
+  },
+  "homepage": "https://github.com/tidev/titanium-vite#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "src",
+    "!**/*.spec.*"
+  ],
   "peerDependencies": {
     "vite": "^8.0.11"
   },
@@ -43,19 +57,5 @@
       "@titanium-sdk/eslint-config/base"
     ]
   },
-  "prettier": "@titanium-sdk/prettier-config",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/tidev/titanium-vite.git",
-    "directory": "packages/vite-titanium-environment"
-  },
-  "homepage": "https://github.com/tidev/titanium-vite#readme",
-  "publishConfig": {
-    "access": "public"
-  },
-  "files": [
-    "dist",
-    "src",
-    "!**/*.spec.*"
-  ]
+  "prettier": "@titanium-sdk/prettier-config"
 }

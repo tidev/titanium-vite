@@ -21,6 +21,20 @@
   "keywords": [],
   "author": "TiDev, Inc. <npm@tidev.io>",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tidev/titanium-vite.git",
+    "directory": "packages/polyfills"
+  },
+  "homepage": "https://github.com/tidev/titanium-vite#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "src",
+    "!**/*.spec.*"
+  ],
   "dependencies": {
     "@sinonjs/text-encoding": "^0.7.3",
     "whatwg-url": "^14.2.0"
@@ -47,19 +61,5 @@
       "@titanium-sdk/eslint-config/base"
     ]
   },
-  "prettier": "@titanium-sdk/prettier-config",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/tidev/titanium-vite.git",
-    "directory": "packages/polyfills"
-  },
-  "homepage": "https://github.com/tidev/titanium-vite#readme",
-  "publishConfig": {
-    "access": "public"
-  },
-  "files": [
-    "dist",
-    "src",
-    "!**/*.spec.*"
-  ]
+  "prettier": "@titanium-sdk/prettier-config"
 }

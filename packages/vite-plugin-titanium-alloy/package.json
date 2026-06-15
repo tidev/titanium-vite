@@ -27,6 +27,20 @@
   ],
   "author": "TiDev, Inc. <npm@tidev.io>",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tidev/titanium-vite.git",
+    "directory": "packages/vite-plugin-titanium-alloy"
+  },
+  "homepage": "https://github.com/tidev/titanium-vite#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "src",
+    "!**/*.spec.*"
+  ],
   "dependencies": {
     "@titanium-sdk/vite-utils": "workspace:*",
     "alloy-compiler": "^1.0.0-beta.1",
@@ -53,19 +67,5 @@
       "@titanium-sdk/eslint-config/base"
     ]
   },
-  "prettier": "@titanium-sdk/prettier-config",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/tidev/titanium-vite.git",
-    "directory": "packages/vite-plugin-titanium-alloy"
-  },
-  "homepage": "https://github.com/tidev/titanium-vite#readme",
-  "publishConfig": {
-    "access": "public"
-  },
-  "files": [
-    "dist",
-    "src",
-    "!**/*.spec.*"
-  ]
+  "prettier": "@titanium-sdk/prettier-config"
 }
