@@ -1,0 +1,162 @@
+# Titanium Vite — Alpha Release Plan & Status
+
+**Last updated:** 2026-06-15
+**Goal:** Ship the first alpha of the Titanium Vite integration — publish the six
+`@titanium-sdk/vite-*` packages to npm at `1.0.0-alpha.1`, with their dependency
+chain (Alloy DevKit) and runtime hosts (Titanium CLI + SDK) in place.
+
+This file is a handoff so work can resume in a fresh session. Update the
+checkboxes as items land.
+
+---
+
+## Status at a glance
+
+| Component | Role | State |
+|---|---|---|
+| `alloy-compiler` / `alloy-utils` (alloy-devkit) | npm deps of the alloy plugin | ✅ **Published** `1.0.0-beta.1` (`beta` tag) |
+| `@titanium-sdk/vite-*` (this repo, 6 pkgs) | the integration | 🟡 Prep done (PR open); **not yet published** |
+| `alloy` (runtime) | app dep | ✅ `3.0.1` on npm (verify ESM adapter compat) |
+| `titanium` (Titanium CLI) | `ti serve` | ❌ `serve` command unreleased (on a branch) |
+| Titanium SDK (`titanium_mobile`) | hosts Vite + plugins | ❌ Vite work unreleased (on `vite` branch) |
+
+---
+
+## Dependency / publish order
+
+```
+alloy-utils ─┐
+             ├─> alloy-compiler ─> @titanium-sdk/vite-plugin-titanium-alloy ─┐
+(published)  ┘                                                              │
+                                                                            ├─> @titanium-sdk/vite-plugin-titanium
+@titanium-sdk/vite-utils ───────────────────────────────────────────────────┤      (main package users install)
+@titanium-sdk/polyfills ─────────────────────────────────────────────────────┤
+@titanium-sdk/vite-titanium-environment ─────────────────────────────────────┘
+@titanium-sdk/vite-codemod (standalone CLI)
+
+Titanium SDK loads Vite + plugins from the app's node_modules (no npm dep).
+Titanium CLI `ti serve` delegates to the SDK.
+```
+
+Publish leaf packages first, then the alloy plugin, then `vite-plugin-titanium`.
+`pnpm -r publish` handles topological order and rewrites `workspace:*` → the
+concrete version automatically.
+
+---
+
+## DONE ✅
+
+### Alloy DevKit (`../alloy-devkit`, repo `tidev/alloy-devkit`, branch `develop`)
+- [x] Published **`alloy-compiler@1.0.0-beta.1`** and **`alloy-utils@1.0.0-beta.1`**
+      to npm under the **`beta`** dist-tag (`latest` stays `0.2.7`). Carries the
+      Alloy ESM compiler work the alloy plugin needs.
+- [x] Replaced **Lerna** with `pnpm -r publish` in the publish workflow.
+- [x] Publish workflow trigger changed `created` → **`published`**, plus a
+      **`workflow_dispatch`** fallback (inputs: `tag`, optional `dist_tag`).
+- [x] Bumped `pnpm/action-setup` `@v4` → `@v6` (node24; clears deprecation).
+- [x] Deleted the stale `v1.0.0-beta.0` GitHub release + tag (never published;
+      its notes were folded into the beta.1 release).
+
+### This repo (`tidev/titanium-vite`, default branch `main`)
+- [x] **PR #1 (merged):** `vite-plugin-titanium-alloy` now depends on the
+      published `alloy-compiler`/`alloy-utils` `^1.0.0-beta.1`; removed the local
+      `link:` overrides from `pnpm-workspace.yaml`.
+- [x] **PR #2 (OPEN — awaiting merge):** publish prep for all 6 packages at
+      **`1.0.0-alpha.1`**:
+  - `files` allowlist (`dist`, `src`, `!**/*.spec.*`) — required because `dist/`
+    is gitignored; without it npm ships no compiled output.
+  - `publishConfig.access: public` — scoped packages are restricted by default.
+  - `prepack: pnpm build` on each package.
+  - Metadata: descriptions, `author` (TiDev), `repository` + `directory`, `homepage`.
+  - License `ISC` → **`Apache-2.0`** + `LICENSE` files (per package + repo root).
+    ⚠️ Flagged for confirmation.
+  - `apps/*` marked `private: true`.
+  - Verified: all build; packed tarball rewrites `workspace:*` → `1.0.0-alpha.1`,
+    includes dist+src+LICENSE, excludes specs.
+
+---
+
+## OPEN TODO ❌
+
+### A. Land + publish this repo's packages
+- [ ] **Confirm license** = Apache-2.0 (or change in PR #2 before merge).
+- [ ] **Confirm npm publish rights** on the `@titanium-sdk` scope. None of the
+      6 packages exist on npm yet — the first publish bootstraps them.
+- [ ] **Merge PR #2.**
+- [ ] **Add a publish mechanism** (deferred "release strategy"). This repo has
+      **no publish workflow yet**. Recommended: reuse the hardened alloy-devkit
+      `publish.yml` (release `published` trigger + `workflow_dispatch`,
+      `pnpm -r publish`). Decide token vs trusted-publishing; needs `NPM_TOKEN`.
+      Alternative: changesets if versioning/changelog automation is wanted.
+- [ ] **Publish** the 6 packages at `1.0.0-alpha.1` under an **`alpha`** dist-tag
+      (so `npm install` doesn't pick them by default).
+- [ ] Verify install from a clean consumer (`npm i @titanium-sdk/vite-plugin-titanium@alpha`).
+
+### B. Titanium CLI (`../titanium-cli`, repo `tidev/titanium-cli`)
+- [ ] Merge the **`vite-serve-command`** branch (`feat: add serve command support`)
+      into `main`. Currently unreleased; npm `latest` is `8.1.5`, local is `8.2.0`.
+- [ ] Release `titanium@8.2.0` so `ti serve` exists for alpha users.
+
+### C. Titanium SDK (`../titanium_mobile`, branch `vite`)
+- [ ] Commit/merge the `vite` branch (adds `cli/commands/serve.js`, the Vite
+      bridge in `cli/lib/serve/`, native-module metadata passing). Branch had
+      uncommitted changes at last check.
+- [ ] Produce an installable SDK build (upstream release/RC, or a documented
+      CI-build install). SDK ships via `ti sdk install`, not npm.
+
+### D. Alloy runtime
+- [ ] Verify `alloy@3.0.1` (on npm) includes the runtime compat layer that
+      normalizes ESM-wrapped sync adapters (see `docs/alloy-esm-migration-notes.md`).
+      Patch-release if missing. The example app pins `alloy: ^3.0.0`.
+
+### Lower priority / known
+- [ ] `references/liveview` still pins alloy `0.2.7` — intentionally left
+      (vendored reference, outside the workspace).
+- [ ] `rolldown@^1.0.0-rc.18` (RC) pinned in both plugins — acceptable for alpha.
+- [ ] No CI workflows in this repo's `.github/` (CLA, lint, test, publish all TBD).
+
+---
+
+## Key facts & gotchas (don't relearn these)
+
+- **GitHub `release: published` does NOT reliably fire on a draft→publish
+  transition** despite the docs. Both a UI "Publish release" and an API
+  draft-toggle produced zero runs on alloy-devkit. The reliable path is
+  **`workflow_dispatch`**:
+  `gh workflow run publish.yml --ref develop -f tag=v1.0.0-beta.1`
+  (dist-tag derives from the tag, e.g. `…-beta.1` → `beta`; override with
+  `-f dist_tag=…`).
+- **`dist/` is gitignored** in this repo → a `files` allowlist is mandatory for
+  every published package, else the tarball has no compiled output.
+- **Types are served from `src/index.ts`** (repo convention), so `src` must be in
+  the tarball; consumers compile against the raw source.
+- **`workspace:*` is rewritten on publish** by `pnpm -r publish` — only works
+  correctly if intra-repo packages share the same version (they do: `1.0.0-alpha.1`).
+- **`main` is protected** — push feature branches and open PRs; don't push to main.
+- Alloy betas are on the **`beta`** tag; vite packages will go on **`alpha`**.
+  `latest` must stay clean on all of them.
+
+## Useful commands
+
+```bash
+# Build + verify a package tarball before publishing
+pnpm build
+cd packages/<pkg> && pnpm pack --pack-destination /tmp   # inspect with: tar -tzf
+
+# Dry-run publish all
+pnpm -r publish --dry-run --no-git-checks
+
+# Alloy DevKit manual publish (the reliable path)
+gh workflow run publish.yml -R tidev/alloy-devkit --ref develop -f tag=<vX.Y.Z>
+
+# Check what's on npm
+npm view @titanium-sdk/vite-plugin-titanium dist-tags --json
+npm view alloy-compiler dist-tags --json
+```
+
+## Open questions for the maintainer
+- License: Apache-2.0 confirmed? (PR #2)
+- `@titanium-sdk` npm scope publish access available?
+- Publish mechanism: reuse alloy-devkit workflow, or adopt changesets?
+- SDK alpha distribution: upstream release vs documented CI build?
+- Version line: stay on `1.0.0-alpha.x`, or reset to `0.x` for the alpha?
