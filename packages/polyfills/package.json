@@ -1,7 +1,7 @@
 {
   "name": "@titanium-sdk/polyfills",
-  "version": "1.0.0",
-  "description": "",
+  "version": "1.0.0-alpha.1",
+  "description": "Runtime polyfills (TextEncoder, URL) for Titanium Vite apps.",
   "type": "module",
   "exports": {
     ".": {
@@ -15,11 +15,12 @@
     "dev": "rollup -c --watch",
     "lint": "eslint",
     "format": "prettier --check . --ignore-path ../../.gitignore",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepack": "pnpm build"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "TiDev, Inc. <npm@tidev.io>",
+  "license": "Apache-2.0",
   "dependencies": {
     "@sinonjs/text-encoding": "^0.7.3",
     "whatwg-url": "^14.2.0"
@@ -46,5 +47,19 @@
       "@titanium-sdk/eslint-config/base"
     ]
   },
-  "prettier": "@titanium-sdk/prettier-config"
+  "prettier": "@titanium-sdk/prettier-config",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tidev/titanium-vite.git",
+    "directory": "packages/polyfills"
+  },
+  "homepage": "https://github.com/tidev/titanium-vite#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "src",
+    "!**/*.spec.*"
+  ]
 }

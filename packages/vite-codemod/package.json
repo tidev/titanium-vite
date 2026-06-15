@@ -1,6 +1,6 @@
 {
   "name": "@titanium-sdk/vite-codemod",
-  "version": "0.1.0",
+  "version": "1.0.0-alpha.1",
   "description": "Codemods for migrating Titanium and Alloy apps to Titanium Vite conventions.",
   "type": "module",
   "files": [
@@ -40,7 +40,7 @@
     "codemod",
     "titanium"
   ],
-  "license": "ISC",
+  "license": "Apache-2.0",
   "dependencies": {
     "jscodeshift": "^17.3.0"
   },
@@ -55,5 +55,15 @@
     "typescript": "catalog:",
     "vitest": "catalog:"
   },
-  "prettier": "@titanium-sdk/prettier-config"
+  "prettier": "@titanium-sdk/prettier-config",
+  "author": "TiDev, Inc. <npm@tidev.io>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tidev/titanium-vite.git",
+    "directory": "packages/vite-codemod"
+  },
+  "homepage": "https://github.com/tidev/titanium-vite#readme",
+  "publishConfig": {
+    "access": "public"
+  }
 }

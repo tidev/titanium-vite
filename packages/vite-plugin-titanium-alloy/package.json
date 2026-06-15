@@ -1,7 +1,7 @@
 {
   "name": "@titanium-sdk/vite-plugin-titanium-alloy",
-  "version": "1.0.0",
-  "description": "",
+  "version": "1.0.0-alpha.1",
+  "description": "Alloy MVC support for the Titanium Vite plugin.",
   "type": "module",
   "exports": {
     ".": {
@@ -17,15 +17,16 @@
     "format": "prettier --check . --ignore-path ../../.gitignore",
     "test": "vitest run",
     "test:watch": "vitest --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepack": "pnpm build"
   },
   "keywords": [
     "alloy",
     "titanium",
     "vite-plugin"
   ],
-  "author": "",
-  "license": "ISC",
+  "author": "TiDev, Inc. <npm@tidev.io>",
+  "license": "Apache-2.0",
   "dependencies": {
     "@titanium-sdk/vite-utils": "workspace:*",
     "alloy-compiler": "^1.0.0-beta.1",
@@ -52,5 +53,19 @@
       "@titanium-sdk/eslint-config/base"
     ]
   },
-  "prettier": "@titanium-sdk/prettier-config"
+  "prettier": "@titanium-sdk/prettier-config",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tidev/titanium-vite.git",
+    "directory": "packages/vite-plugin-titanium-alloy"
+  },
+  "homepage": "https://github.com/tidev/titanium-vite#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "src",
+    "!**/*.spec.*"
+  ]
 }

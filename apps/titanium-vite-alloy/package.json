@@ -3,8 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "type": "module",
-  "scripts": {
-  },
+  "scripts": {},
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -15,5 +14,6 @@
     "@titanium-sdk/vite-plugin-titanium": "workspace:*",
     "alloy": "^3.0.0",
     "vite": "catalog:"
-  }
+  },
+  "private": true
 }
