@@ -19,10 +19,6 @@ catalogs:
       specifier: ^3.0.9
       version: 3.2.4
 
-overrides:
-  alloy-compiler: link:../../../alloy-devkit/packages/alloy-compiler
-  alloy-utils: link:../../../alloy-devkit/packages/alloy-utils
-
 importers:
 
   .:

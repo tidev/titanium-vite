@@ -10,10 +10,6 @@ catalogs:
       specifier: ^8.0.11
       version: 8.0.14
 
-overrides:
-  alloy-compiler: link:../../../alloy-devkit/packages/alloy-compiler
-  alloy-utils: link:../../../alloy-devkit/packages/alloy-utils
-
 importers:
 
   .:

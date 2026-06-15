@@ -28,8 +28,8 @@
   "license": "ISC",
   "dependencies": {
     "@titanium-sdk/vite-utils": "workspace:*",
-    "alloy-compiler": "^0.2.7",
-    "alloy-utils": "^0.2.7",
+    "alloy-compiler": "^1.0.0-beta.1",
+    "alloy-utils": "^1.0.0-beta.1",
     "fs-extra": "^11.3.0",
     "rolldown": "^1.0.0-rc.18"
   },
