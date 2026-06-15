@@ -1,7 +1,7 @@
 {
   "name": "@titanium-sdk/vite-titanium-environment",
-  "version": "1.0.0",
-  "description": "",
+  "version": "1.0.0-alpha.1",
+  "description": "Custom Vite environment for building Titanium apps.",
   "type": "module",
   "exports": {
     ".": {
@@ -17,11 +17,26 @@
     "format": "prettier --check . --ignore-path ../../.gitignore",
     "test": "vitest run",
     "test:watch": "vitest --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepack": "pnpm build"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "TiDev, Inc. <npm@tidev.io>",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tidev/titanium-vite.git",
+    "directory": "packages/vite-titanium-environment"
+  },
+  "homepage": "https://github.com/tidev/titanium-vite#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "dist",
+    "src",
+    "!**/*.spec.*"
+  ],
   "peerDependencies": {
     "vite": "^8.0.11"
   },
