@@ -1,0 +1,20 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@3.0.0/schema.json",
+  "changelog": "@changesets/cli/changelog",
+  "commit": false,
+  "fixed": [
+    [
+      "@titanium-sdk/polyfills",
+      "@titanium-sdk/vite-utils",
+      "@titanium-sdk/vite-codemod",
+      "@titanium-sdk/vite-plugin-titanium-alloy",
+      "@titanium-sdk/vite-plugin-titanium",
+      "@titanium-sdk/vite-titanium-environment"
+    ]
+  ],
+  "linked": [],
+  "access": "public",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch",
+  "ignore": []
+}

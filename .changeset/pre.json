@@ -1,0 +1,18 @@
+{
+  "mode": "pre",
+  "tag": "alpha",
+  "initialVersions": {
+    "@titanium-sdk/titanium-vite-alloy": "1.0.0",
+    "@titanium-sdk/titanium-vite-classic": "1.0.0",
+    "@titanium-sdk/polyfills": "1.0.0-alpha.1",
+    "@titanium-sdk/vite-utils": "1.0.0-alpha.1",
+    "@titanium-sdk/vite-codemod": "1.0.0-alpha.1",
+    "@titanium-sdk/vite-plugin-titanium": "1.0.0-alpha.1",
+    "@titanium-sdk/vite-plugin-titanium-alloy": "1.0.0-alpha.1",
+    "@titanium-sdk/vite-titanium-environment": "1.0.0-alpha.1",
+    "@titanium-sdk/eslint-config": "0.3.0",
+    "@titanium-sdk/prettier-config": "0.1.0",
+    "@titanium-sdk/tsconfig": "0.1.0"
+  },
+  "changesets": []
+}
