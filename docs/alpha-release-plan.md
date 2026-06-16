@@ -15,7 +15,7 @@ checkboxes as items land.
 | Component | Role | State |
 |---|---|---|
 | `alloy-compiler` / `alloy-utils` (alloy-devkit) | npm deps of the alloy plugin | ✅ **Published** `1.0.0-beta.1` (`beta` tag) |
-| `@titanium-sdk/vite-*` (this repo, 6 pkgs) | the integration | 🟡 Prep merged (PR #2); release tooling in place; **not yet published** (blocked on npm scope access) |
+| `@titanium-sdk/vite-*` (this repo, 6 pkgs) | the integration | ✅ **Published** `1.0.0-alpha.1` (`alpha` tag) via changesets |
 | `alloy` (runtime) | app dep | ✅ `3.0.1` on npm (verify ESM adapter compat) |
 | `titanium` (Titanium CLI) | `ti serve` | ❌ `serve` command unreleased (on a branch) |
 | Titanium SDK (`titanium_mobile`) | hosts Vite + plugins | ❌ Vite work unreleased (on `vite` branch) |
@@ -92,17 +92,34 @@ concrete version automatically.
   - `.github/workflows/release.yml` (changesets/action; push-to-main → opens a
     "Version Packages" PR, publishes on merge). **Needs `NPM_TOKEN` secret.**
   - Verified `pnpm -r publish --dry-run --tag alpha`: all 6 build + pack at alpha.1.
-- [ ] **Confirm npm publish rights** on the `@titanium-sdk` scope. ⛔ **BLOCKER** —
-      none of the 6 packages exist on npm yet; first publish bootstraps the scope.
-      Maintainer must verify/obtain scope access (and add `NPM_TOKEN` to repo secrets).
-- [ ] **Publish** the 6 packages at `1.0.0-alpha.1` under the **`alpha`** dist-tag.
-      First release ships the already-pinned alpha.1; no version bump needed.
+- [x] **npm publish rights** on the `@titanium-sdk` scope — confirmed; scope bootstrapped.
+- [x] **Published** all 6 packages at `1.0.0-alpha.1` under the **`alpha`** dist-tag
+      (verified live on npm 2026-06-15).
 - [ ] Verify install from a clean consumer (`npm i @titanium-sdk/vite-plugin-titanium@alpha`).
 
 ### B. Titanium CLI (`../titanium-cli`, repo `tidev/titanium-cli`)
-- [ ] Merge the **`vite-serve-command`** branch (`feat: add serve command support`)
-      into `main`. Currently unreleased; npm `latest` is `8.1.5`, local is `8.2.0`.
-- [ ] Release `titanium@8.2.0` so `ti serve` exists for alpha users.
+Two PRs, merge **in order** (pin first), then release. CI was red repo-wide
+from three unrelated causes, all now fixed:
+- [ ] **Merge PR #952 first** (`ci/pin-pnpm-version` → `main`), three fixes:
+  1. **`fix(sdk)`: yauzl 3.3.0 → 3.4.0** — user-facing Node 24 bug. yauzl's
+     piped inflate stream emits nothing for large deflate entries on Node 24, so
+     `ti sdk install` stalls at the first big file (lodash.js, 544 KB) and Node 24
+     aborts ("unsettled top-level await"). The SDK never installs on Node 24.
+     Verified end-to-end. Lockfile patched surgically (yauzl + drop buffer-crc32).
+  2. **`ci`: pin `packageManager: pnpm@10.33.3`** — CI crashed on Node 20 because
+     `action-setup@v4 + version:latest` pulled pnpm 11 (needs Node ≥22.13 /
+     `node:sqlite`).
+  3. **`test(sdk)`: stabilize `sdk list`** — hardcoded the now-removed `12_6_X`
+     branch; asserts any `\d+_\d+_X` branch instead.
+  Supersedes the mis-based #947 (closed).
+- [ ] **Then merge PR #910** (`vite-serve-command` → `main`,
+      `feat: add serve command support`). Now also carries
+      `fix(cli): restore variadic positional arg parsing` + regression tests —
+      the serve branch's positional refactor had broken `sdk uninstall/install`
+      variadic parsing (`TypeError: versions.filter is not a function`). After
+      #952 lands, merge `main` into this branch so CI inherits the fixes.
+      Bumps version to `8.2.0`.
+- [ ] **Release `titanium@8.2.0`** so `ti serve` exists for alpha users.
 
 ### C. Titanium SDK (`../titanium_mobile`, branch `vite`)
 - [ ] Commit/merge the `vite` branch (adds `cli/commands/serve.js`, the Vite
